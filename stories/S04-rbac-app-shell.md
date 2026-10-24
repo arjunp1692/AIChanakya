@@ -25,4 +25,8 @@ One central permission module that every service uses, plus role-aware navigatio
 - Log in as ceo@, hod.edt@, edt.m1@, viewer@; fetch `/` HTML and grep nav labels. GET `/settings` as edt.m1@ → forbidden.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/authz/index.ts`: matrix comment + `can`/`assertCan`/`ForbiddenError`/`ticketVisibilityWhere`. Ticket checks take a `TicketResource` {departmentId, ownerId, confidential, assigneeIds?, linkedDepartmentIds?}; services must load assignees + dependency depts. No resource = "could this role ever" (nav/buttons). Every ticket action requires view.
+- Interpretations: MEMBER may edit/changeStatus/request changeDeadline on tickets they own, cannot create; HOD can't see CEO dashboard; VIEWER gets dashboard.ceo, report.view, escalation.view only. `where` filter verified equal to `can("ticket.view")` over all seed users×tickets.
+- Shell: route group `src/app/(app)/layout.tsx` (sidebar + topbar, mobile horizontal nav); nav config `src/lib/nav.ts` (`NAV_ITEMS`, `navAccess(href)`). `/` = Home (always shown); CEO dashboard lives at `/dashboard`.
+- Pages guard with `requirePermission(...actions)` (`src/server/auth/session.ts`) → redirect `/forbidden` (307 then 200 page, not a true 403 status). Placeholders use `src/components/placeholder-page.tsx`.
+- Follow-up: map `ForbiddenError` thrown from server actions/route handlers to 403 responses (S06+).

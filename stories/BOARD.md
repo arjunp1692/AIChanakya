@@ -8,7 +8,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S01 | Project scaffold and tooling | A | §12 | sonnet | — | Done |
 | S02 | Core data model and seed data | A | §8 | opus | S01 | Done |
 | S03 | Authentication and login | A | §3 | sonnet | S02 | Done (manual check) |
-| S04 | Permission policy and app shell | A | FR-08 | opus | S03 | Todo |
+| S04 | Permission policy and app shell | A | FR-08 | opus | S03 | Done |
 | S05 | Audit log service and ticket ID generator | A | FR-01 | sonnet | S02 | Todo |
 | S06 | Create ticket | B | FR-01 | sonnet | S04, S05 | Todo |
 | S07 | Ticket list, search and filters | B | §11 | sonnet | S06 | Todo |
