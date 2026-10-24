@@ -23,4 +23,9 @@ A runnable empty app with the agreed stack, plus the `validate` gate every later
 - `pnpm validate`; start db + dev; `curl -s localhost:3000/api/health`; `pnpm smoke`.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- Next 15.5 + React 19, Tailwind v4, shadcn (radix-nova preset) in `src/components/ui`; zod v4; Prisma 6 (`postinstall` runs `prisma generate`).
+- Prisma client singleton: `src/server/db.ts` (`import { prisma } from "@/server/db"`). Schema has no models yet (S02).
+- `scripts/smoke.ts`: add `{ name, run }` entries to `checks`; `BASE_URL` env overrides localhost:3000.
+- Docker db creds: chanakya/chanakya, db `chanakya` (see `.env.example`). `.env` is gitignored.
+- Prisma blocks `migrate reset` from AI agents without explicit user consent (`PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`).
+- Follow-ups: none.

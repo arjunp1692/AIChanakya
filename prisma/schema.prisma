@@ -1,0 +1,497 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CEO
+  CEO_OFFICE
+  HOD
+  MEMBER
+  VIEWER
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  BLOCKED
+  AWAITING_APPROVAL
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ContributionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+enum AttachmentKind {
+  FILE
+  LINK
+}
+
+// Highest priority requiring attention on a daily report (PRD §7).
+enum ReportPriority {
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ReportSection {
+  COMPLETED
+  IN_PROGRESS
+  NEW
+  PENDING
+  DELAYED
+  BLOCKED
+}
+
+enum EscalationTrigger {
+  DEADLINE_MISSED
+  REPEATED_DELAY
+  CRITICAL_BLOCKER
+  MISSED_REPORT
+  REPORT_CRITICAL
+  DECISION_OVERDUE
+}
+
+enum EscalationStatus {
+  OPEN
+  ACK
+  RESOLVED
+}
+
+enum DecisionStatus {
+  PENDING
+  DECIDED
+  WITHDRAWN
+}
+
+enum AiInsightKind {
+  BRIEF
+  DELAY_PATTERN
+  BOTTLENECK
+  DECISION_DRAFT
+}
+
+enum AiReviewStatus {
+  UNREVIEWED
+  REVIEWED
+  DISMISSED
+}
+
+// ─── Organisation ────────────────────────────────────────────────────────────
+
+model Department {
+  id        String   @id @default(cuid())
+  /// 2–5 uppercase letters, e.g. OPS. A string (not an enum) so new departments need no migration.
+  code      String   @unique
+  name      String
+  hodUserId String?  @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hod             User?            @relation("DepartmentHod", fields: [hodUserId], references: [id], onDelete: SetNull)
+  members         User[]           @relation("DepartmentMembers")
+  tickets         Ticket[]
+  dailyReports    DailyReport[]
+  escalations     Escalation[]
+  decisions       Decision[]
+  weeklySnapshots WeeklySnapshot[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  departmentId String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department? @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  headOf     Department? @relation("DepartmentHod")
+
+  ownedTickets       Ticket[]         @relation("TicketOwner")
+  createdTickets     Ticket[]         @relation("TicketCreatedBy")
+  validatedTickets   Ticket[]         @relation("TicketValidatedBy")
+  assignments        TicketAssignee[]
+  ticketEvents       TicketEvent[]
+  comments           Comment[]
+  attachments        Attachment[]
+  deadlineRequests   DeadlineChange[] @relation("DeadlineRequestedBy")
+  deadlineApprovals  DeadlineChange[] @relation("DeadlineApprovedBy")
+  dailyReports       DailyReport[]
+  decisionsRequested Decision[]       @relation("DecisionRequestedBy")
+  decisionsDecided   Decision[]       @relation("DecisionDecidedBy")
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  aiReviews          AiInsight[]
+
+  @@index([departmentId])
+  @@index([role])
+}
+
+// ─── Tickets ─────────────────────────────────────────────────────────────────
+
+model Ticket {
+  id               String       @id @default(cuid())
+  /// KN-<DEPTCODE>-<YYYY>-<00001>
+  ticketNo         String       @unique
+  title            String
+  description      String       @default("")
+  departmentId     String
+  ownerId          String
+  priority         Priority     @default(MEDIUM)
+  status           TicketStatus @default(NEW)
+  /// 0–100
+  progress         Int          @default(0)
+  dueDate          DateTime?
+  /// Set once with the first deadline; never overwritten.
+  originalDueDate  DateTime?
+  noDeadlineReason String?
+  blockerReason    String?
+  confidential     Boolean      @default(false)
+  duplicateOfId    String?
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  completedAt      DateTime?
+  validatedById    String?
+  validatedAt      DateTime?
+  reopenCount      Int          @default(0)
+  extensionCount   Int          @default(0)
+
+  department  Department @relation(fields: [departmentId], references: [id])
+  owner       User       @relation("TicketOwner", fields: [ownerId], references: [id])
+  createdBy   User       @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  validatedBy User?      @relation("TicketValidatedBy", fields: [validatedById], references: [id])
+  duplicateOf Ticket?    @relation("TicketDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates  Ticket[]   @relation("TicketDuplicate")
+
+  assignees       TicketAssignee[]
+  dependencies    TicketDependency[] @relation("DependencyOf")
+  dependents      TicketDependency[] @relation("DependsOn")
+  events          TicketEvent[]
+  comments        Comment[]
+  attachments     Attachment[]
+  deadlineChanges DeadlineChange[]
+  reportItems     DailyReportItem[]
+  escalations     Escalation[]
+  decisions       Decision[]
+
+  @@index([departmentId, status])
+  @@index([ownerId])
+  @@index([status, dueDate])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Ticket_title_trgm_idx")
+}
+
+/// Co-assignees only; the primary owner lives on Ticket.ownerId.
+model TicketAssignee {
+  id                 String             @id @default(cuid())
+  ticketId           String
+  userId             String
+  responsibility     String             @default("")
+  contributionStatus ContributionStatus @default(NOT_STARTED)
+  progress           Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([ticketId, userId])
+  @@index([userId])
+}
+
+/// Either a linked ticket or a free-text external prerequisite.
+model TicketDependency {
+  id                   String   @id @default(cuid())
+  ticketId             String
+  dependsOnTicketId    String?
+  externalPrerequisite String?
+  resolved             Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  ticket          Ticket  @relation("DependencyOf", fields: [ticketId], references: [id], onDelete: Cascade)
+  dependsOnTicket Ticket? @relation("DependsOn", fields: [dependsOnTicketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([dependsOnTicketId])
+}
+
+/// Ticket update history (status, field changes, progress, etc.).
+model TicketEvent {
+  id        String   @id @default(cuid())
+  ticketId  String
+  actorId   String?
+  /// e.g. CREATED, STATUS_CHANGED, FIELD_CHANGED, PROGRESS, COMMENT, REOPENED
+  type      String
+  field     String?
+  fromValue String?
+  toValue   String?
+  reason    String?
+  at        DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId, at])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model Attachment {
+  id           String         @id @default(cuid())
+  ticketId     String
+  kind         AttachmentKind
+  /// Storage path for FILE, URL for LINK.
+  url          String
+  name         String
+  isEvidence   Boolean        @default(false)
+  uploadedById String
+  /// Set when added via a daily report.
+  reportId     String?
+  createdAt    DateTime       @default(now())
+
+  ticket     Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User         @relation(fields: [uploadedById], references: [id])
+  report     DailyReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+}
+
+model DeadlineChange {
+  id            String    @id @default(cuid())
+  ticketId      String
+  from          DateTime?
+  to            DateTime
+  reason        String
+  requestedById String
+  approvedById  String?
+  at            DateTime  @default(now())
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  requestedBy User   @relation("DeadlineRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?  @relation("DeadlineApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([ticketId, at])
+}
+
+// ─── Daily reporting ─────────────────────────────────────────────────────────
+
+model DailyReport {
+  id                String         @id @default(cuid())
+  departmentId      String
+  /// Calendar date in Asia/Kolkata, stored as UTC midnight of that date.
+  reportDate        DateTime       @db.Date
+  submittedById     String
+  submittedAt       DateTime       @default(now())
+  revision          Int            @default(1)
+  isLatest          Boolean        @default(true)
+  /// Full form snapshot as submitted.
+  payload           Json
+  highestPriority   ReportPriority @default(NORMAL)
+  blockersText      String         @default("")
+  nextDayPriorities String         @default("")
+  /// Seconds spent filling the form (proxy for manual reporting effort, PRD §14).
+  fillSeconds       Int?
+
+  department  Department        @relation(fields: [departmentId], references: [id])
+  submittedBy User              @relation(fields: [submittedById], references: [id])
+  items       DailyReportItem[]
+  attachments Attachment[]
+
+  @@unique([departmentId, reportDate, revision])
+  @@index([reportDate])
+}
+
+model DailyReportItem {
+  id       String        @id @default(cuid())
+  reportId String
+  ticketId String
+  section  ReportSection
+  note     String        @default("")
+  progress Int?
+
+  report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  ticket Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([ticketId])
+}
+
+// ─── Escalations & decisions ─────────────────────────────────────────────────
+
+model Escalation {
+  id             String            @id @default(cuid())
+  ticketId       String?
+  departmentId   String?
+  decisionId     String?
+  trigger        EscalationTrigger
+  impact         String            @default("")
+  requiredAction String            @default("")
+  level          Int               @default(1)
+  status         EscalationStatus  @default(OPEN)
+  createdAt      DateTime          @default(now())
+  resolvedAt     DateTime?
+
+  ticket     Ticket?     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id])
+  decision   Decision?   @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([ticketId])
+}
+
+model Decision {
+  id               String         @id @default(cuid())
+  ticketId         String?
+  departmentId     String
+  requestedById    String
+  question         String
+  businessImpact   String         @default("")
+  /// [{ label, detail }]
+  options          Json           @default("[]")
+  recommendation   String         @default("")
+  decisionDeadline DateTime
+  status           DecisionStatus @default(PENDING)
+  outcome          String?
+  decidedById      String?
+  decidedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  ticket      Ticket?      @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  department  Department   @relation(fields: [departmentId], references: [id])
+  requestedBy User         @relation("DecisionRequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User?        @relation("DecisionDecidedBy", fields: [decidedById], references: [id])
+  escalations Escalation[]
+  aiInsights  AiInsight[]
+
+  @@index([status, decisionDeadline])
+}
+
+// ─── Notifications & audit ───────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  /// e.g. DEADLINE_APPROACHING, ESCALATION, REPORT_REMINDER, ASSIGNED
+  kind      String
+  title     String
+  body      String    @default("")
+  link      String?
+  /// IN_APP | EMAIL | WHATSAPP
+  channel   String    @default("IN_APP")
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+/// Global append-only audit log.
+model ActivityLog {
+  id       String   @id @default(cuid())
+  actorId  String?
+  entity   String
+  entityId String
+  action   String
+  diff     Json     @default("{}")
+  at       DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([at])
+}
+
+/// Configurable thresholds: cut-off, reminder windows, escalation, validation policy.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─── AI & reporting ──────────────────────────────────────────────────────────
+
+/// Every AI output; UI labels it "AI-generated".
+model AiInsight {
+  id             String         @id @default(cuid())
+  kind           AiInsightKind
+  decisionId     String?
+  periodStart    DateTime
+  periodEnd      DateTime
+  content        Json
+  citedTicketNos String[]
+  model          String
+  createdAt      DateTime       @default(now())
+  reviewStatus   AiReviewStatus @default(UNREVIEWED)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+
+  decision   Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+  reviewedBy User?     @relation(fields: [reviewedById], references: [id])
+
+  @@index([kind, createdAt])
+}
+
+model WeeklySnapshot {
+  id           String   @id @default(cuid())
+  periodStart  DateTime
+  periodEnd    DateTime
+  /// Null = organisation-wide snapshot.
+  departmentId String?
+  metrics      Json
+  createdAt    DateTime @default(now())
+
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@index([periodStart, departmentId])
+}
+
+/// Per-department, per-year sequence for ticket numbers.
+model TicketCounter {
+  departmentCode String
+  year           Int
+  last           Int    @default(0)
+
+  @@id([departmentCode, year])
+}

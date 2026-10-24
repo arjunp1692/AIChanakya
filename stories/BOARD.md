@@ -5,8 +5,8 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 
 | ID | Title | Phase | PRD | Model | Deps | Status |
 |---|---|---|---|---|---|---|
-| S01 | Project scaffold and tooling | A | §12 | sonnet | — | Todo |
-| S02 | Core data model and seed data | A | §8 | opus | S01 | Todo |
+| S01 | Project scaffold and tooling | A | §12 | sonnet | — | Done |
+| S02 | Core data model and seed data | A | §8 | opus | S01 | Done |
 | S03 | Authentication and login | A | §3 | sonnet | S02 | Todo |
 | S04 | Permission policy and app shell | A | FR-08 | opus | S03 | Todo |
 | S05 | Audit log service and ticket ID generator | A | FR-01 | sonnet | S02 | Todo |

@@ -38,4 +38,9 @@ Seed (`prisma/seed.ts`): 8 departments; users `ceo@`, `ceooffice@`, `viewer@`, a
 - `pnpm db:reset`; tsx script printing counts by status/priority/department and asserting criteria 2–3.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- Schema: `prisma/schema.prisma`, migration `20261024160500_init` (pg_trgm via `postgresqlExtensions` preview; GIN index `Ticket_title_trgm_idx` declared in schema so no drift). Extra enums: `ReportPriority` (NORMAL|HIGH|CRITICAL), `ContributionStatus` (NOT_STARTED|IN_PROGRESS|DONE).
+- Free-form strings (no migration to extend): `TicketEvent.type`, `Notification.kind`/`channel`, `ActivityLog.entity`/`action`. `DailyReport.reportDate` is `@db.Date` = IST calendar date.
+- Settings keys (JSON): `report.cutoff`, `reminders.*`, `escalation.*`, `completion.validationPolicy` (CRITICAL_ONLY), `visibility.crossDepartment` (HYBRID), `notifications.channels`.
+- Seed dates are relative to today (IST); seed clears tables first so `pnpm db:seed` is re-runnable. Passwords hashed with `bcryptjs` (added dep). All 8 depts report 5 days; PRD and COM each miss one day; OPS has a revision 2.
+- `pnpm seed:check` (`scripts/check-seed.ts`) prints counts and asserts criteria 2–3. `TicketCounter` is seeded to match existing ticket numbers.
+- Windows: `prisma generate` fails with EPERM on the engine DLL while `pnpm dev` runs; stop dev first after schema changes.
