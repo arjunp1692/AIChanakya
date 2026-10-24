@@ -20,4 +20,8 @@ Secure login, with a session that knows the user's id, role and department.
 - curl `/` without cookie → redirect to `/login`. Log in via the credentials callback with a curl cookie jar (csrf flow); GET `/` → 200. Set a user inactive via tsx, retry → fails.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `next-auth@5.0.0-beta.32`. Edge-safe `src/server/auth/config.ts` (callbacks, public paths, Session/User type augmentation) is shared by `src/middleware.ts`; `src/server/auth/index.ts` adds the Credentials provider (Prisma + bcryptjs, Zod) and exports `auth, signIn, signOut, handlers`.
+- Public: `/login`, `/api/health`, `/api/auth/*`; a signed-in user hitting `/login` is redirected to `/`. `trustHost: true` (self-hosted).
+- `requireUser()` (`src/server/auth/session.ts`) returns `{id,name,email,role,departmentId}` and redirects to `/login` when signed out. Session is JWT, so role/dept changes and deactivation only apply at the next login (follow-up: re-check `active` in `requireUser` or shorten maxAge).
+- Login/logout server actions are in `src/app/login/actions.ts`; `/` is a placeholder showing the user plus a logout button (S04 replaces it with the app shell).
+- JWT claims are typed with a local `AppToken` cast because `next-auth/jwt` can't be resolved for module augmentation under pnpm.
