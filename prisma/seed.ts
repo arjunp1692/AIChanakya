@@ -148,6 +148,8 @@ const SETTINGS: Record<string, Prisma.InputJsonValue> = {
   // OWN_DEPT | ALL_SHARED | HYBRID (PRD §17 decision 5)
   "visibility.crossDepartment": "HYBRID",
   "notifications.channels": ["IN_APP", "EMAIL"],
+  // New tickets in these departments default to confidential (PRD §11 Privacy).
+  "confidential.defaultDepts": ["HR"],
 };
 
 type SeedUser = { id: string; name: string; deptCode: string | null };

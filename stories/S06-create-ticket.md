@@ -21,4 +21,8 @@ Authorised users create tickets that are valid from birth.
 - Call the server action/route as hod.edt@ with and without owner; as edt.m1@ for MKT dept; query DB for event/log rows.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/service.ts` `createTicket(user, input: unknown)` → throws ZodError / `TicketInputError(field)` / `ForbiddenError`; `src/server/errors.ts` `serviceError(err)` maps them to {status 400/403, body {error, fieldErrors}} — reuse in later actions/routes. Authz runs before owner lookup (forbidden dept = 403). Owner must be an active user of the ticket's department.
+- authz: MEMBER now has `ticket.create` for own dept with self as owner (matrix updated). `confidentialDefaultDepts()` reads Setting `confidential.defaultDepts` (seeded `["HR"]`, fallback `["HR"]`).
+- Schema `src/lib/schemas/ticket.ts`: blank strings → undefined; date-only `YYYY-MM-DD` = 23:59:59 IST; dueDate XOR noDeadlineReason; `confidential` accepts "true"/"false"/"on".
+- Entry points: `POST /api/tickets` (JSON, 201/400/401/403) and server action at `/tickets/new` → redirect `/tickets/<ticketNo>` (minimal page; S08 replaces). Event `CREATED` (to=status), ActivityLog action `CREATE` entity `Ticket`.
+- Validation: `pnpm exec tsx .harness/tmp/s06-check.ts` (creates + cleans up). `pnpm db:reset` is blocked by Prisma's AI consent guard; setting was upserted via `.harness/tmp/s06-setting.ts` instead.

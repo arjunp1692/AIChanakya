@@ -7,7 +7,7 @@
  * | Action                   | CEO | CEO_OFFICE | VIEWER          | HOD                         | MEMBER                     |
  * |--------------------------|-----|------------|-----------------|-----------------------------|----------------------------|
  * | ticket.view              | all | all        | non-confidential| own dept, assigned, linked¹ | own dept, assigned         |
- * | ticket.create            | yes | yes        | —               | own dept                    | —                          |
+ * | ticket.create            | yes | yes        | —               | own dept                    | own dept, self as owner    |
  * | ticket.edit              | yes | yes        | —               | own dept                    | tickets they own           |
  * | ticket.changeStatus      | yes | yes        | —               | own dept                    | tickets they own           |
  * | ticket.changeDeadline    | yes | yes        | —               | own dept                    | tickets they own (request) |
@@ -114,6 +114,7 @@ function ticketAction(user: AuthzUser, action: Action, t: TicketResource | undef
     case "ticket.contribute":
       return coAssigned;
     case "ticket.create":
+      return (user.role === "HOD" && ownDept) || (user.role === "MEMBER" && ownDept && owns);
     case "ticket.assign":
     case "ticket.validate":
       return user.role === "HOD" && ownDept;
