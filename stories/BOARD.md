@@ -11,7 +11,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S04 | Permission policy and app shell | A | FR-08 | opus | S03 | Done |
 | S05 | Audit log service and ticket ID generator | A | FR-01 | sonnet | S02 | Done |
 | S06 | Create ticket | B | FR-01 | sonnet | S04, S05 | Done (manual check) |
-| S07 | Ticket list, search and filters | B | §11 | sonnet | S06 | Todo |
+| S07 | Ticket list, search and filters | B | §11 | sonnet | S06 | Done (manual check) |
 | S08 | Ticket detail, edit and comments | B | FR-04 | sonnet | S07 | Todo |
 | S09 | Status workflow state machine | B | §9 | opus | S08 | Todo |
 | S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Todo |
