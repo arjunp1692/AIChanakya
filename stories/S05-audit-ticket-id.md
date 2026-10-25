@@ -18,4 +18,7 @@ Shared primitives that every mutation uses.
 - tsx script in `.harness/tmp/` firing 20 parallel transactions and asserting uniqueness; script calling `logActivity` and printing the stored diff.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/id.ts`: `nextTicketNo(tx, deptCode, date?)` uses one raw `INSERT … ON CONFLICT DO UPDATE SET last=last+1 RETURNING` (row lock → no dupes under concurrency); year = IST calendar year. `formatTicketNo` exported.
+- `src/server/audit/index.ts`: `logActivity(tx,{actor,entity,entityId,action,before,after})` stores `{field:{from,to}}` for changed keys only (Dates → ISO, `updatedAt` ignored); `diffFields` exported. `recordTicketEvent(tx,{ticketId,actor,type,field?,from?,to?,reason?})` stringifies values.
+- `src/lib/constants.ts`: `TICKET_STATUSES`, `STATUS_LABELS/BADGE`, `CLOSED_STATUSES`, `PRIORITIES`, `PRIORITY_LABELS/BADGE`, `REPORT_PRIORITY_LABELS`, `OVERDUE_BADGE`, `SEED_DEPARTMENTS` (reference only; live list = `Department` table).
+- Validation: `pnpm exec tsx .harness/tmp/s05-check.ts` (20 parallel txs on test dept ZZT/2031 + diff print; cleans up after itself). Shell PATH may lack node/pnpm: prepend `C:\Program Files\nodejs` and `%APPDATA%\npm`.
