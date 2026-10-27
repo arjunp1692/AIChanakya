@@ -14,6 +14,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S07 | Ticket list, search and filters | B | §11 | sonnet | S06 | Done (manual check) |
 | S08 | Ticket detail, edit and comments | B | FR-04 | sonnet | S07 | Done (manual check) |
 | S09 | Status workflow state machine | B | §9 | opus | S08 | Done (manual check) |
+| S39 | Kubera Now brand theme | B | §11 | sonnet | S04 | Done (manual check) |
 | S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Todo |
 | S11 | Co-assignees and contributions | B | FR-03 | sonnet | S09 | Todo |
 | S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Todo |
@@ -44,6 +45,6 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S38 | Success KPI tracking | E | §14 | sonnet | S26 | Todo |
 | S36 | Launch readiness verification | G | §16 | opus | S01–S35, S37, S38 | Todo |
 
-S37/S38 were added after the PRD coverage review; S36 stays last.
+S37/S38 were added after the PRD coverage review; S36 stays last. S39 (brand theme, spec `docs/DESIGN.md`) is placed before S10 so later UI stories build on the themed components.
 
 **Working-product milestones:** after S16 the core ticket + daily reporting app is usable for a pilot · after S27 the CEO dashboard is complete (PRD MVP) · after S32 + S37 the AI layer is in · S36 confirms launch readiness.

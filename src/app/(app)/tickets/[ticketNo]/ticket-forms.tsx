@@ -23,7 +23,7 @@ import {
 } from "./actions";
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+  "h-9 w-full rounded-md border border-career-input-border bg-white px-3 text-sm outline-none focus-visible:border-primary-navy focus-visible:ring-2 focus-visible:ring-primary-navy/30";
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors?.length) return null;
@@ -63,7 +63,7 @@ export function EditTicketForm({ ticketId, ticketNo, title, description, priorit
   }
 
   return (
-    <form action={action} className="space-y-3 rounded-md border p-4">
+    <form action={action} className="space-y-3 rounded-md border border-divider bg-surface p-4">
       <div className="space-y-1.5">
         <label htmlFor="title" className="text-sm font-medium">
           Title

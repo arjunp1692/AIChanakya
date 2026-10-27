@@ -13,8 +13,8 @@ import { TicketTable } from "./ticket-table";
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
-const labelClass = "text-xs font-medium text-muted-foreground";
+  "h-9 w-full rounded-md border border-career-input-border bg-white px-3 text-sm outline-none focus-visible:border-primary-navy focus-visible:ring-2 focus-visible:ring-primary-navy/30";
+const labelClass = "text-xs font-semibold text-career-muted";
 
 /** "YYYY-MM-DD" of an instant in IST (for date inputs). */
 const istDay = (d?: Date) => (d ? d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : "");
@@ -52,7 +52,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Tickets</h1>
+        <h1 className="text-heading-big font-bold text-career-dark">Tickets</h1>
         {can(user, "ticket.create") && (
           <Button asChild>
             <Link href="/tickets/new">New ticket</Link>
@@ -60,7 +60,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
         )}
       </div>
 
-      <form method="get" action="/tickets" className="space-y-3 rounded-lg border p-3">
+      <form method="get" action="/tickets" className="space-y-3 rounded-md border border-divider bg-surface p-4">
         <input type="hidden" name="sort" value={f.sort} />
         <input type="hidden" name="dir" value={f.dir} />
         {f.ids && <input type="hidden" name="ids" value={f.ids.join(",")} />}
@@ -157,9 +157,9 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
             <Link href="/tickets">Reset</Link>
           </Button>
           {f.ids && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-career-muted">
               Limited to {f.ids.length} selected ticket{f.ids.length === 1 ? "" : "s"} ·{" "}
-              <Link href={`/tickets?${queryWithout(params, ["ids", "page"]).toString()}`} className="underline">
+              <Link href={`/tickets?${queryWithout(params, ["ids", "page"]).toString()}`} className="text-content-link underline underline-offset-2">
                 show all
               </Link>
             </span>
@@ -167,9 +167,11 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
         </div>
       </form>
 
-      <TicketTable rows={result.rows} sort={f.sort} dir={f.dir} query={filterQuery} />
+      <div className="overflow-hidden rounded-md border border-divider bg-surface">
+        <TicketTable rows={result.rows} sort={f.sort} dir={f.dir} query={filterQuery} />
+      </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-career-muted">
         <span>
           {firstRow}–{lastRow} of {result.total}
         </span>

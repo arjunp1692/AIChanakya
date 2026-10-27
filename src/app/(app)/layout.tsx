@@ -28,17 +28,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-56 shrink-0 flex-col border-r bg-background md:flex">
-        <div className="px-5 py-4 text-base font-semibold">Chanakya AI</div>
-        <NavLinks items={items} className="flex flex-col gap-1 px-3" />
+      <aside className="hidden w-56 shrink-0 flex-col bg-dark-navy1 text-white md:flex">
+        <div className="border-b border-indigo-dark px-6 py-4">
+          <div className="text-base font-bold">Chanakya AI</div>
+          <div className="text-xs uppercase tracking-wider text-cyan-blue">Kubera Now · CEO Office</div>
+        </div>
+        <NavLinks items={items} variant="sidebar" className="flex flex-col py-3" />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
-          <span className="font-semibold md:hidden">Chanakya AI</span>
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-divider bg-surface px-4 py-3 shadow-sm md:px-6">
+          <span className="font-bold text-primary md:hidden">Chanakya AI</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <div className="text-right leading-tight">
-              <div className="font-medium">{user.name}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="font-semibold text-career-dark">{user.name}</div>
+              <div className="text-xs text-career-muted">
                 {ROLE_LABELS[user.role]}
                 {department ? ` · ${department.name}` : ""}
               </div>
@@ -50,8 +53,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </header>
-        <NavLinks items={items} className="flex gap-1 overflow-x-auto border-b px-2 py-1 md:hidden" />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <NavLinks
+          items={items}
+          variant="bar"
+          className="flex overflow-x-auto border-b border-cyan-blue bg-linear-to-r from-dark-navy2 to-primary-navy text-white md:hidden"
+        />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 md:px-6 md:py-6">{children}</main>
       </div>
     </div>
   );

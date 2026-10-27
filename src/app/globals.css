@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-noto), var(--font-guj), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-noto), var(--font-guj), sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,41 +46,76 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Kubera Now brand tokens (docs/DESIGN.md §1, §5) */
+  --color-primary-navy: #000ec0;
+  --color-dark-navy1: #00065c;
+  --color-dark-navy2: #000764;
+  --color-indigo-dark: #0d1483;
+  --color-indigo-light: #262d94;
+  --color-background-hover: #00219a;
+  --color-cyan-blue: #00ffee;
+  --color-light-navy4: #d7d9ff;
+  --color-surface: #fff;
+  --color-career-tint: #efefff;
+  --color-chip-bg: #d7d9ff;
+  --color-chip-border: #cacdff;
+  --color-badge-border: #b8bdf7;
+  --color-divider: #dadcff;
+  --color-career-input-border: #cecece;
+  --color-career-heading: #1a1411;
+  --color-career-dark: #313131;
+  --color-text-soft: #374151;
+  --color-career-muted: #6e6e6e;
+  --color-content-link: #1e2eff;
+  --color-error: #c4313f;
+  --color-error-bg: #fdecee;
+  --color-error-border: #f5c4ca;
+  --color-error-text: #7a3742;
+  --color-skeleton: #efeff8;
+  --text-heading-big: 24px;
+  --text-heading-big--line-height: 30px;
+  --text-heading-small: 18px;
+  --text-heading-small--line-height: 22px;
+  --text-subheading-small: 16px;
+  --text-subheading-small--line-height: 22px;
+  --text-content-big: 16px;
+  --text-content-small: 12px;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.375rem;
+  --background: #f3f4ff;
+  --foreground: #313131;
+  --card: #ffffff;
+  --card-foreground: #313131;
+  --popover: #ffffff;
+  --popover-foreground: #313131;
+  --primary: #010874;
+  --primary-foreground: #ffffff;
+  --secondary: #efefff;
+  --secondary-foreground: #010874;
+  --muted: #efefff;
+  --muted-foreground: #6e6e6e;
+  --accent: #d7d9ff;
+  --accent-foreground: #010874;
+  --destructive: #c4313f;
+  --border: #dadcff;
+  --input: #cecece;
+  --ring: #000ec0;
+  --chart-1: #010874;
+  --chart-2: #000ec0;
+  --chart-3: #00b7d7;
+  --chart-4: #dd7400;
+  --chart-5: #62748e;
+  --sidebar: #00065c;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #00ffee;
+  --sidebar-primary-foreground: #010874;
+  --sidebar-accent: #00219a;
+  --sidebar-accent-foreground: #00ffee;
+  --sidebar-border: #0d1483;
+  --sidebar-ring: #00ffee;
 }
 
 .dark {
@@ -127,4 +162,20 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Brand scrollbars (DESIGN §4) */
+* {
+  scrollbar-color: var(--color-divider) var(--color-career-tint);
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-career-tint);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-divider);
+  border-radius: 9999px;
 }

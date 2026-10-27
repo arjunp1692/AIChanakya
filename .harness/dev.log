@@ -1,0 +1,149 @@
+
+> chanakya-ai@0.1.0 dev C:\Users\baps\Desktop\Kubera\AIChanakya\AIChanakya
+> next dev
+
+   ▲ Next.js 15.5.4
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.29.253:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 2.6s
+ ✓ Compiled /middleware in 500ms (223 modules)
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 763ms (280 modules)
+ GET /api/health 200 in 1079ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 991ms (515 modules)
+ GET /api/auth/csrf 200 in 2135ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.9s (1366 modules)
+ GET /login 200 in 3414ms
+ ✓ Compiled in 1283ms (375 modules)
+ ✓ Compiled in 236ms (375 modules)
+ ✓ Compiled in 262ms (375 modules)
+ ✓ Compiled in 281ms (375 modules)
+ ✓ Compiled in 356ms (375 modules)
+ ✓ Compiled in 259ms (375 modules)
+ ✓ Compiled in 167ms (375 modules)
+ ✓ Compiled in 174ms (375 modules)
+ ✓ Compiled in 210ms (375 modules)
+ ○ Compiling /tickets/[ticketNo] ...
+ ✓ Compiled /tickets/[ticketNo] in 4s (1578 modules)
+ ✓ Compiled in 545ms (405 modules)
+ ✓ Compiled in 240ms (405 modules)
+ ✓ Compiled in 243ms (405 modules)
+ ✓ Compiled in 177ms (405 modules)
+ ✓ Compiled in 239ms (405 modules)
+ ✓ Compiled in 282ms (405 modules)
+ ✓ Compiled in 172ms (405 modules)
+ ✓ Compiled in 233ms (405 modules)
+ ✓ Compiled in 997ms (405 modules)
+ ✓ Compiled in 250ms (405 modules)
+ ✓ Compiled in 285ms (405 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 7933ms
+ ✓ Compiled in 279ms (405 modules)
+ ✓ Compiled in 175ms (405 modules)
+ ✓ Compiled in 192ms (405 modules)
+ ✓ Compiled in 233ms (405 modules)
+ ✓ Compiled in 160ms (405 modules)
+ ✓ Compiled in 167ms (405 modules)
+ ✓ Compiled in 189ms (405 modules)
+ ✓ Compiled in 165ms (405 modules)
+ ✓ Compiled in 181ms (405 modules)
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 795ms (1580 modules)
+ GET /favicon.ico 200 in 770ms
+ GET /tickets/KN-EDT-2026-00006 200 in 320ms
+ ✓ Compiled in 183ms (405 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 151ms
+ ✓ Compiled in 157ms (405 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 183ms
+ GET /api/auth/csrf 200 in 58ms
+ POST /api/auth/callback/credentials 302 in 241ms
+ ○ Compiling / ...
+ ✓ Compiled / in 668ms (1569 modules)
+ GET / 200 in 1132ms
+ ○ Compiling /tickets ...
+ ✓ Compiled /tickets in 1081ms (1589 modules)
+ GET /tickets 200 in 1958ms
+ ✓ Compiled in 1225ms (411 modules)
+ ○ Compiling /tickets/new ...
+ ✓ Compiled /tickets/new in 1499ms (1615 modules)
+ GET /tickets/new 200 in 2109ms
+ ✓ Compiled in 488ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 2714ms
+ GET /tickets/KN-EDT-2026-00006 200 in 658ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 1610ms (1618 modules)
+ GET /settings 200 in 2024ms
+ ✓ Compiled in 474ms (414 modules)
+ ✓ Compiled in 351ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 2443ms
+ GET / 200 in 519ms
+ ✓ Compiled in 402ms (414 modules)
+ ✓ Compiled in 412ms (414 modules)
+ GET /api/auth/csrf 200 in 377ms
+ GET /tickets/KN-EDT-2026-00006 200 in 1490ms
+ ✓ Compiled in 388ms (414 modules)
+ POST /api/auth/callback/credentials 302 in 234ms
+ ✓ Compiled in 462ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1486ms
+ ✓ Compiled in 366ms (414 modules)
+ GET / 200 in 588ms
+ ✓ Compiled in 423ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1546ms
+ ✓ Compiled in 371ms (414 modules)
+ GET /tickets 200 in 581ms
+ ✓ Compiled in 537ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 2090ms
+ ✓ Compiled in 917ms (414 modules)
+ ✓ Compiled in 255ms (414 modules)
+ GET /tickets/new 200 in 382ms
+ GET /tickets/KN-EDT-2026-00006 200 in 2131ms
+ ✓ Compiled in 642ms (414 modules)
+ ✓ Compiled in 256ms (414 modules)
+ GET /settings 307 in 477ms
+ ✓ Compiled in 470ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1578ms
+ ✓ Compiled in 325ms (414 modules)
+ GET / 200 in 377ms
+ ✓ Compiled in 362ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1315ms
+ ✓ Compiled in 283ms (414 modules)
+ ✓ Compiled in 290ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1186ms
+ GET /login 200 in 349ms
+ ✓ Compiled in 453ms (414 modules)
+ ✓ Compiled in 292ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1264ms
+ ✓ Compiled in 408ms (414 modules)
+ ✓ Compiled in 184ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 969ms
+ ✓ Compiled in 306ms (414 modules)
+ ✓ Compiled in 308ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 944ms
+ ✓ Compiled in 275ms (414 modules)
+ ✓ Compiled in 203ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 903ms
+ ✓ Compiled in 318ms (414 modules)
+ ✓ Compiled in 206ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1186ms
+ ✓ Compiled in 662ms (414 modules)
+ ✓ Compiled in 247ms (414 modules)
+ ✓ Compiled in 257ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 1333ms
+ ✓ Compiled in 245ms (414 modules)
+ ✓ Compiled in 257ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 910ms
+ ✓ Compiled in 293ms (414 modules)
+ ✓ Compiled in 208ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 905ms
+ ✓ Compiled in 315ms (414 modules)
+ ✓ Compiled in 210ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 850ms
+ ✓ Compiled in 297ms (414 modules)
+ ✓ Compiled in 228ms (414 modules)
+ ✓ Compiled in 365ms (414 modules)
+ GET /tickets/KN-EDT-2026-00006 200 in 995ms
+[?25h

@@ -25,7 +25,7 @@ export default async function NewTicketPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-xl font-semibold">New ticket</h1>
+      <h1 className="text-heading-big font-bold text-career-dark">New ticket</h1>
       <NewTicketForm
         departments={departments}
         users={users}

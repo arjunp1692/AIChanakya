@@ -24,6 +24,7 @@ Next.js App Router + TS (strict) · Tailwind + shadcn/ui · Prisma + PostgreSQL 
 - `originalDueDate` is never overwritten. Overdue is computed, not a status.
 - Every AI output is stored with `source: "AI"` and cited ticket IDs; UI labels it "AI-generated".
 - Dates stored UTC, displayed Asia/Kolkata.
+- UI follows `docs/DESIGN.md`; use brand tokens, no raw hex in components.
 - No test files for now (project decision). Validation = `pnpm validate` + story Validation steps.
 
 ## Commands

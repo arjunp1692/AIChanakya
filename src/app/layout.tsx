@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Noto_Sans, Noto_Sans_Gujarati } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const noto = Noto_Sans({ subsets: ["latin"], variable: "--font-noto", display: "swap" });
+const notoGuj = Noto_Sans_Gujarati({ subsets: ["gujarati"], variable: "--font-guj", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Chanakya AI",
@@ -17,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className={cn("font-sans", noto.variable, notoGuj.variable)}>
       <body className="antialiased">
         {children}
         <Toaster />

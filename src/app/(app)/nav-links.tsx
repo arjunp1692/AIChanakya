@@ -28,11 +28,21 @@ const ICONS: Record<string, LucideIcon> = {
   "/admin": Shield,
 };
 
+const VARIANTS = {
+  /** Desktop navy sidebar: cyan text + right border on the active item. */
+  sidebar:
+    "gap-3 border-r-4 border-transparent px-6 py-3 font-semibold text-white hover:bg-background-hover data-[active=true]:rounded-r-sm data-[active=true]:border-cyan-blue data-[active=true]:bg-background-hover data-[active=true]:text-cyan-blue",
+  /** Mobile gradient bar: cyan underline on the active item. */
+  bar: "gap-2 border-b-2 border-transparent px-3.5 py-3 font-semibold hover:border-cyan-blue hover:bg-background-hover hover:text-cyan-blue data-[active=true]:border-cyan-blue data-[active=true]:bg-background-hover data-[active=true]:text-cyan-blue",
+} as const;
+
 export function NavLinks({
   items,
+  variant,
   className,
 }: {
   items: { href: string; label: string }[];
+  variant: keyof typeof VARIANTS;
   className?: string;
 }) {
   const pathname = usePathname();
@@ -45,9 +55,11 @@ export function NavLinks({
           <Link
             key={href}
             href={href}
+            data-active={active}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
-              active && "bg-muted font-medium text-foreground",
+              "flex shrink-0 items-center text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-cyan-blue focus-visible:ring-inset",
+              VARIANTS[variant],
             )}
           >
             <Icon className="size-4" />

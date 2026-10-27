@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionHeader } from "@/components/section-header";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   OVERDUE_BADGE,
   PRIORITY_BADGE,
@@ -96,7 +97,7 @@ function FieldsPanel({ t }: { t: TicketDetail }) {
       <Field label="Reopened">{t.reopenCount}</Field>
       {t.duplicateOf && (
         <Field label="Duplicate of">
-          <a className="underline" href={`/tickets/${t.duplicateOf.ticketNo}`}>
+          <a className="text-content-link underline underline-offset-2" href={`/tickets/${t.duplicateOf.ticketNo}`}>
             {t.duplicateOf.ticketNo}
           </a>
         </Field>
@@ -139,9 +140,9 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <p className="font-mono text-sm text-muted-foreground">{t.ticketNo}</p>
+        <p className="font-mono text-xs text-career-muted">{t.ticketNo}</p>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t.title}</h1>
+          <h1 className="text-heading-big font-bold text-career-dark line-clamp-3">{t.title}</h1>
           {canEdit && (
             <EditTicketForm
               ticketId={t.id}
@@ -158,7 +159,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
           <span className={cn(badge, STATUS_BADGE[t.status])}>{STATUS_LABELS[t.status]}</span>
           <span className={cn(badge, PRIORITY_BADGE[t.priority])}>{PRIORITY_LABELS[t.priority]}</span>
           {t.overdue && <span className={cn(badge, OVERDUE_BADGE)}>Overdue</span>}
-          {t.confidential && <span className={cn(badge, "bg-muted text-muted-foreground")}>Confidential</span>}
+          {t.confidential && <span className={cn(badge, "bg-chip-bg text-primary")}>Confidential</span>}
         </div>
         {(statusOptions.length > 0 || (canChangeStatus && isOpenStatus(t.status))) && (
           <div className="flex flex-wrap items-center gap-4">
@@ -176,7 +177,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
         <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Description</CardTitle>
+              <SectionHeader title="Description" />
             </CardHeader>
             <CardContent>
               {t.description ? (
@@ -189,7 +190,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <CardTitle>Comments ({t.comments.length})</CardTitle>
+              <SectionHeader title={<>Comments ({t.comments.length})</>} />
             </CardHeader>
             <CardContent className="space-y-4">
               {t.comments.length === 0 && <p className="text-sm text-muted-foreground">No comments yet.</p>}
@@ -197,7 +198,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                 {t.comments.map((c) => (
                   <li key={c.id} className="text-sm">
                     <p className="text-muted-foreground">
-                      <span className="font-medium text-foreground">{c.author.name}</span> · {fmtDateTime(c.createdAt)}
+                      <span className="font-semibold text-career-dark">{c.author.name}</span> · {fmtDateTime(c.createdAt)}
                     </p>
                     <p className="whitespace-pre-wrap">{c.body}</p>
                   </li>
@@ -209,14 +210,14 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <CardTitle>History</CardTitle>
+              <SectionHeader title="History" />
             </CardHeader>
             <CardContent>
-              <ol className="space-y-3 border-l pl-4">
+              <ol className="space-y-3 border-l-2 border-divider pl-4">
                 {t.events.map((e) => (
                   <li key={e.id} className="text-sm">
                     <p className="text-muted-foreground">
-                      <span className="font-medium text-foreground">{e.actor?.name ?? "System"}</span> ·{" "}
+                      <span className="font-semibold text-career-dark">{e.actor?.name ?? "System"}</span> ·{" "}
                       {fmtDateTime(e.at)}
                     </p>
                     <p>
@@ -260,7 +261,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
         <aside className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <SectionHeader title="Details" />
             </CardHeader>
             <CardContent>
               <FieldsPanel t={t} />
@@ -269,7 +270,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <CardTitle>Co-assignees</CardTitle>
+              <SectionHeader title="Co-assignees" />
             </CardHeader>
             <CardContent className="text-sm">
               {t.assignees.length === 0 ? (
@@ -290,7 +291,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <CardTitle>Dependencies</CardTitle>
+              <SectionHeader title="Dependencies" />
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {t.dependencies.length === 0 && t.dependents.length === 0 && (
@@ -300,7 +301,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                 <p key={d.id}>
                   Depends on{" "}
                   {d.dependsOnTicket ? (
-                    <a className="font-mono underline" href={`/tickets/${d.dependsOnTicket.ticketNo}`}>
+                    <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.dependsOnTicket.ticketNo}`}>
                       {d.dependsOnTicket.ticketNo}
                     </a>
                   ) : (
@@ -312,7 +313,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
               {t.dependents.map((d) => (
                 <p key={d.id}>
                   Blocks{" "}
-                  <a className="font-mono underline" href={`/tickets/${d.ticket.ticketNo}`}>
+                  <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.ticket.ticketNo}`}>
                     {d.ticket.ticketNo}
                   </a>
                 </p>
@@ -322,7 +323,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <CardTitle>Attachments</CardTitle>
+              <SectionHeader title="Attachments" />
             </CardHeader>
             <CardContent className="text-sm">
               {t.attachments.length === 0 ? (

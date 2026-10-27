@@ -18,6 +18,7 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        chip: "border-badge-border bg-chip-bg leading-none text-primary [a]:ring-1 [a]:ring-chip-border [a]:ring-inset [a]:hover:bg-chip-border",
       },
     },
     defaultVariants: {
