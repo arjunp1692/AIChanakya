@@ -41,3 +41,18 @@ export const createTicketSchema = z
   });
 
 export type CreateTicketInput = z.input<typeof createTicketSchema>;
+
+/** Partial edit: omitted fields are left unchanged. An owner change needs `ownerReason`. */
+export const updateTicketSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200).optional(),
+  description: z.string().trim().max(10_000).optional(),
+  priority: z.preprocess(blankToUndefined, z.enum(PRIORITIES).optional()),
+  ownerId: z.preprocess(blankToUndefined, z.string().optional()),
+  ownerReason: z.preprocess(blankToUndefined, z.string().trim().max(1000).optional()),
+});
+
+export type UpdateTicketInput = z.input<typeof updateTicketSchema>;
+
+export const addCommentSchema = z.object({
+  body: z.string().trim().min(1, "Comment cannot be empty").max(10_000),
+});

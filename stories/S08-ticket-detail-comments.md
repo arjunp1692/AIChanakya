@@ -19,4 +19,8 @@ One page that shows everything about a ticket and its full history.
 - As hod.edt@ edit priority + owner on an EDT ticket; query TicketEvent rows. As mkt.m1@ GET an EDT non-shared ticket → forbidden.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/detail.ts`: `getTicketDetail(user, ticketNo)` → null if missing, throws ForbiddenError if not viewable (page redirects `/forbidden`); `resourceInclude` + `toTicketResource(t)` build the authz `TicketResource` (assignees + linked depts) — reuse in every ticket mutation.
+- `service.ts` `updateTicket(user, ticketId, input)`: needs `ticket.edit`; owner change also needs `ticket.assign` + `ownerReason` (else `TicketInputError("ownerReason")`) + active owner in the ticket's dept. Only changed fields written; one `FIELD_CHANGED` TicketEvent per field (owner stored as user IDs, reason on the event), one ActivityLog `UPDATE`. No status change on reassignment (S09 owns status).
+- `addComment(user, ticketId, input)`: Comment + TicketEvent `COMMENT` (toValue = comment id) + ActivityLog entity `Comment`/`CREATE`.
+- UI: `/tickets/[ticketNo]` server page (cards: description, comments, history newest-first, details, co-assignees/deps/attachments read-only) + client `ticket-forms.tsx` (inline edit, comment) via server actions in `actions.ts` (bound ticketId/ticketNo, `revalidatePath`).
+- Validation: `pnpm exec tsx .harness/tmp/s08-check.ts` (creates an EDT ticket, edits/comments, checks 400/403, cleans up; burns one ticket number).
