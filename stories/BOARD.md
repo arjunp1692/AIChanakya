@@ -15,7 +15,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S08 | Ticket detail, edit and comments | B | FR-04 | sonnet | S07 | Done (manual check) |
 | S09 | Status workflow state machine | B | §9 | opus | S08 | Done (manual check) |
 | S39 | Kubera Now brand theme | B | §11 | sonnet | S04 | Done (manual check) |
-| S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Todo |
+| S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Done (manual check) |
 | S11 | Co-assignees and contributions | B | FR-03 | sonnet | S09 | Todo |
 | S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Todo |
 | S13 | Attachments, evidence and completion validation | B | §8 | sonnet | S09 | Todo |

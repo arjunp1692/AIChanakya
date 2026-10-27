@@ -4,6 +4,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   OVERDUE_BADGE,
+  PENDING_BANNER,
   PRIORITY_BADGE,
   PRIORITY_LABELS,
   STATUS_BADGE,
@@ -16,10 +17,20 @@ import { prisma } from "@/server/db";
 import { getTicketDetail, type TicketDetail } from "@/server/tickets/detail";
 import { isOpenStatus } from "@/lib/ticket-utils";
 import { allowedNextStatuses, needsReason } from "@/server/tickets/workflow";
-import { CommentForm, EditTicketForm, ProgressForm, StatusControl } from "./ticket-forms";
+import { canDecideDeadline, deadlineNeedsApproval } from "@/server/tickets/deadline";
+import {
+  CommentForm,
+  DeadlineControl,
+  DeadlineDecision,
+  EditTicketForm,
+  ProgressForm,
+  StatusControl,
+} from "./ticket-forms";
 
 const badge = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap";
 const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" });
+/** "YYYY-MM-DD" in IST, for `<input type="date">`. */
+const isoDateIST = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 const fmtDateTime = (d: Date) =>
   d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 
@@ -32,6 +43,12 @@ const FIELD_LABELS: Record<string, string> = {
   dueDate: "Due date",
   completedAt: "Completed at",
   progress: "Progress",
+};
+
+const DEADLINE_EVENTS: Record<string, string> = {
+  DEADLINE_CHANGED: "Changed deadline",
+  DEADLINE_REQUESTED: "Requested deadline change",
+  DEADLINE_REJECTED: "Rejected deadline change",
 };
 
 async function loadOrForbid(user: Awaited<ReturnType<typeof requireUser>>, ticketNo: string) {
@@ -74,7 +91,7 @@ function FieldsPanel({ t }: { t: TicketDetail }) {
       <Field label="Created by">{t.createdBy.name}</Field>
       <Field label="Created">{fmtDateTime(t.createdAt)}</Field>
       <Field label="Last updated">{fmtDateTime(t.updatedAt)}</Field>
-      <Field label="Due date">
+      <Field label={deadlineMoved ? "Current due date" : "Due date"}>
         {t.dueDate ? fmtDate(t.dueDate) : `No deadline: ${t.noDeadlineReason ?? "—"}`}
       </Field>
       {t.originalDueDate && (
@@ -119,6 +136,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const statusOptions = canChangeStatus
     ? allowedNextStatuses(user, t.status).map((s) => ({ status: s, needsReason: needsReason(t.status, s) }))
     : [];
+  const canChangeDeadline = can(user, "ticket.changeDeadline", t.resource) && isOpenStatus(t.status);
+  const needsApproval = canChangeDeadline && (await deadlineNeedsApproval(user));
+  const pendingDeadline = t.deadlineChanges[0];
+  const canDecide = !!pendingDeadline && canDecideDeadline(user, t.resource);
 
   const owners = canAssign
     ? await prisma.user.findMany({
@@ -161,9 +182,32 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
           {t.overdue && <span className={cn(badge, OVERDUE_BADGE)}>Overdue</span>}
           {t.confidential && <span className={cn(badge, "bg-chip-bg text-primary")}>Confidential</span>}
         </div>
-        {(statusOptions.length > 0 || (canChangeStatus && isOpenStatus(t.status))) && (
+        {pendingDeadline && (
+          <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md p-3 text-sm", PENDING_BANNER)}>
+            <div>
+              <p className="font-semibold">
+                Deadline change waiting for HOD approval:{" "}
+                {pendingDeadline.from ? fmtDate(pendingDeadline.from) : "no deadline"} → {fmtDate(pendingDeadline.to)}
+              </p>
+              <p>
+                Requested by {pendingDeadline.requestedBy.name} · {fmtDateTime(pendingDeadline.at)} · Reason:{" "}
+                {pendingDeadline.reason}
+              </p>
+            </div>
+            {canDecide && <DeadlineDecision ticketId={t.id} ticketNo={t.ticketNo} changeId={pendingDeadline.id} />}
+          </div>
+        )}
+        {(statusOptions.length > 0 || (canChangeStatus && isOpenStatus(t.status)) || canChangeDeadline) && (
           <div className="flex flex-wrap items-center gap-4">
             <StatusControl ticketId={t.id} ticketNo={t.ticketNo} status={t.status} options={statusOptions} />
+            {canChangeDeadline && !pendingDeadline && (
+              <DeadlineControl
+                ticketId={t.id}
+                ticketNo={t.ticketNo}
+                dueDate={t.dueDate ? isoDateIST(t.dueDate) : null}
+                needsApproval={needsApproval}
+              />
+            )}
             {canChangeStatus && isOpenStatus(t.status) && (
               <div className="w-full max-w-sm">
                 <ProgressForm key={t.progress} ticketId={t.id} ticketNo={t.ticketNo} progress={t.progress} />
@@ -236,6 +280,14 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                       ) : e.type === "PROGRESS" ? (
                         <>
                           Progress: <span className="text-muted-foreground">{e.fromValue ?? 0}%</span> → {e.toValue}%
+                        </>
+                      ) : e.type in DEADLINE_EVENTS ? (
+                        <>
+                          {DEADLINE_EVENTS[e.type]}:{" "}
+                          <span className="text-muted-foreground">
+                            {e.fromValue ? fmtDate(new Date(e.fromValue)) : "no deadline"}
+                          </span>{" "}
+                          → {e.toValue ? fmtDate(new Date(e.toValue)) : "—"}
                         </>
                       ) : e.type === "COMMENT" ? (
                         "Commented"

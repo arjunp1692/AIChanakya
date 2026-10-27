@@ -5,6 +5,7 @@ import { requireUser } from "@/server/auth/session";
 import { serviceError, type ServiceErrorBody } from "@/server/errors";
 import { addComment, updateTicket } from "@/server/tickets/service";
 import { changeStatus, updateProgress } from "@/server/tickets/workflow";
+import { changeDeadline, decideDeadline } from "@/server/tickets/deadline";
 
 export type TicketFormState = Partial<ServiceErrorBody> & { ok?: boolean };
 
@@ -58,4 +59,24 @@ export async function updateProgressAction(
 ): Promise<TicketFormState> {
   const user = await requireUser();
   return run(ticketNo, () => updateProgress(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function changeDeadlineAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => changeDeadline(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function decideDeadlineAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => decideDeadline(user, ticketId, Object.fromEntries(formData)));
 }

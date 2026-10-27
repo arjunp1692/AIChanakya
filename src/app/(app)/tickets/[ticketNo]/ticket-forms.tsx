@@ -16,7 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import {
   addCommentAction,
+  changeDeadlineAction,
   changeStatusAction,
+  decideDeadlineAction,
   updateProgressAction,
   updateTicketAction,
   type TicketFormState,
@@ -272,6 +274,101 @@ export function ProgressForm({ ticketId, ticketNo, progress }: { ticketId: strin
       </div>
       <FieldError errors={state.fieldErrors?.progress} />
       {state.error && !state.fieldErrors?.progress && <p className="text-sm text-destructive">{state.error}</p>}
+    </form>
+  );
+}
+
+/** "Change deadline" button + dialog. `needsApproval` = the change will wait for HOD approval. */
+export function DeadlineControl({
+  ticketId,
+  ticketNo,
+  dueDate,
+  needsApproval,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  /** Current due date as "YYYY-MM-DD" (IST), or null. */
+  dueDate: string | null;
+  needsApproval: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    changeDeadlineAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const errors = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Change deadline
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Change deadline</DialogTitle>
+              <DialogDescription>
+                {needsApproval
+                  ? "Your request goes to the HOD for approval. The original due date is always kept."
+                  : "The new date applies at once. The original due date is always kept."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <label htmlFor="dl-dueDate" className="text-sm font-medium">
+                New due date
+              </label>
+              <Input id="dl-dueDate" name="dueDate" type="date" defaultValue={dueDate ?? ""} required />
+              <FieldError errors={errors.dueDate} />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="dl-reason" className="text-sm font-medium">
+                Reason
+              </label>
+              <Textarea id="dl-reason" name="reason" rows={3} required maxLength={1000} />
+              <FieldError errors={errors.reason} />
+            </div>
+            {state.error && !errors.dueDate && !errors.reason && (
+              <p className="text-sm text-destructive">{state.error}</p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Saving…" : needsApproval ? "Request change" : "Change deadline"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** Approve / reject buttons for a pending deadline change (HOD+). */
+export function DeadlineDecision({ ticketId, ticketNo, changeId }: { ticketId: string; ticketNo: string; changeId: string }) {
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    decideDeadlineAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+
+  return (
+    <form action={action} className="space-y-1.5">
+      <input type="hidden" name="changeId" value={changeId} />
+      <div className="flex gap-2">
+        <Button type="submit" name="approve" value="true" size="sm" disabled={pending}>
+          Approve
+        </Button>
+        <Button type="submit" name="approve" value="false" size="sm" variant="outline" disabled={pending}>
+          Reject
+        </Button>
+      </div>
+      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }

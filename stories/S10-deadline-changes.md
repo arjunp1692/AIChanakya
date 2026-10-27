@@ -20,4 +20,9 @@ Deadlines can move, but the original is never lost and every change is justified
 - tsx/curl: edt.m1@ requests extension → pending; hod.edt@ approves → dueDate updated; check DeadlineChange + originalDueDate.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/deadline.ts`: `changeDeadline(user, id, {dueDate, reason})`, `decideDeadline(user, id, {changeId, approve})`, `canDecideDeadline`, `deadlineNeedsApproval`. Open tickets only; future dates only; one PENDING per ticket.
+- Schema: `DeadlineChange.status` (PENDING/APPROVED/REJECTED, default APPROVED) + `decidedAt`; `approvedById` = decider (self when auto). Setting `deadline.approval`: `"HOD"` (members wait) | `"NONE"`.
+- Approval applies via `updateMany where dueDate = change.from` (stale → 400). `originalDueDate` only set if null (first deadline); `extensionCount++` only when moved later; clears `noDeadlineReason`.
+- Events: `DEADLINE_REQUESTED`, `DEADLINE_CHANGED`, `DEADLINE_REJECTED` (field `dueDate`, reason). ActivityLog: `DeadlineChange` CREATE/UPDATE + `Ticket` UPDATE on apply.
+- UI: `DeadlineControl` (dialog) + `DeadlineDecision` (approve/reject) in `ticket-forms.tsx`; amber `PENDING_BANNER` token in constants. Check: `pnpm exec tsx .harness/tmp/s10-check.ts`.
+- Follow-ups: notify HOD of pending requests (S19); pending requests on closed tickets are left as-is.

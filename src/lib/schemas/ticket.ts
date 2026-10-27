@@ -4,14 +4,13 @@ import { PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
 /** "YYYY-MM-DD" (date input) = end of that day in Asia/Kolkata; anything else is parsed as a timestamp. */
-const dueDate = z.preprocess(
-  (v) => {
-    const s = blankToUndefined(v);
-    if (typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T23:59:59+05:30`);
-    return typeof s === "string" ? new Date(s) : s;
-  },
-  z.date({ error: "Invalid due date" }).optional(),
-);
+function toDueDate(v: unknown) {
+  const s = blankToUndefined(v);
+  if (typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T23:59:59+05:30`);
+  return typeof s === "string" ? new Date(s) : s;
+}
+
+const dueDate = z.preprocess(toDueDate, z.date({ error: "Invalid due date" }).optional());
 
 const bool = z.preprocess((v) => {
   if (v === "true" || v === "on") return true;
@@ -71,4 +70,21 @@ export const updateProgressSchema = z.object({
 
 export const addCommentSchema = z.object({
   body: z.string().trim().min(1, "Comment cannot be empty").max(10_000),
+});
+
+/** Deadline change; `reason` is always required. `dueDate` accepts "YYYY-MM-DD" (end of day IST). */
+export const changeDeadlineSchema = z.object({
+  dueDate: z.preprocess(toDueDate, z.date({ error: "Choose a valid new due date" })),
+  reason: z.preprocess(
+    (v) => blankToUndefined(v) ?? "",
+    z.string().trim().min(1, "Give a reason for the deadline change").max(1000),
+  ),
+});
+
+export type ChangeDeadlineInput = z.input<typeof changeDeadlineSchema>;
+
+/** HOD decision on a pending deadline change. */
+export const decideDeadlineSchema = z.object({
+  changeId: z.string().min(1),
+  approve: z.preprocess((v) => v === true || v === "true", z.boolean()),
 });

@@ -148,6 +148,8 @@ const SETTINGS: Record<string, Prisma.InputJsonValue> = {
   // OWN_DEPT | ALL_SHARED | HYBRID (PRD §17 decision 5)
   "visibility.crossDepartment": "HYBRID",
   "notifications.channels": ["IN_APP", "EMAIL"],
+  // HOD = members' deadline changes wait for HOD approval | NONE = all changes auto-approved
+  "deadline.approval": "HOD",
   // New tickets in these departments default to confidential (PRD §11 Privacy).
   "confidential.defaultDepts": ["HR"],
 };
@@ -424,7 +426,9 @@ async function main() {
         to: x.to,
         reason: x.reason,
         requestedById: s.ownerId,
+        status: "APPROVED",
         approvedById: s.dept.hod.id,
+        decidedAt: x.at,
         at: x.at,
       })),
     });

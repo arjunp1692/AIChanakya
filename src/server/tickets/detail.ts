@@ -42,6 +42,7 @@ const detailInclude = {
   attachments: { include: { uploadedBy: userName }, orderBy: { createdAt: "desc" } },
   comments: { include: { author: userName }, orderBy: { createdAt: "asc" } },
   events: { include: { actor: userName }, orderBy: { at: "desc" } },
+  deadlineChanges: { where: { status: "PENDING" }, include: { requestedBy: userName }, orderBy: { at: "desc" } },
 } satisfies Prisma.TicketInclude;
 
 export type TicketDetail = Prisma.TicketGetPayload<{ include: typeof detailInclude }> & {

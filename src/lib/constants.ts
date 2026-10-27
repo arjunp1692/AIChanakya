@@ -75,3 +75,7 @@ export const SEED_DEPARTMENTS = [
   { code: "COM", name: "Communications" },
   { code: "PRO", name: "Production" },
 ] as const;
+
+/** Banner for a deadline change waiting for approval (matches the AWAITING_APPROVAL badge). */
+export const PENDING_BANNER =
+  "border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100";

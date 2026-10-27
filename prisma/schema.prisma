@@ -295,20 +295,31 @@ model Attachment {
 }
 
 model DeadlineChange {
-  id            String    @id @default(cuid())
+  id            String               @id @default(cuid())
   ticketId      String
   from          DateTime?
   to            DateTime
   reason        String
+  /// PENDING until an approver decides; auto-approved changes are APPROVED at once.
+  status        DeadlineChangeStatus @default(APPROVED)
   requestedById String
+  /// Who approved or rejected; the requester when auto-approved.
   approvedById  String?
-  at            DateTime  @default(now())
+  decidedAt     DateTime?
+  at            DateTime             @default(now())
 
   ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   requestedBy User   @relation("DeadlineRequestedBy", fields: [requestedById], references: [id])
   approvedBy  User?  @relation("DeadlineApprovedBy", fields: [approvedById], references: [id])
 
   @@index([ticketId, at])
+  @@index([status])
+}
+
+enum DeadlineChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ─── Daily reporting ─────────────────────────────────────────────────────────
