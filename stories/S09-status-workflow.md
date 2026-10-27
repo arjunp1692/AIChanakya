@@ -22,4 +22,9 @@ Status changes follow the defined lifecycle and stay fully traceable.
 - tsx script calling the service for each legal/illegal transition and printing results; DB check of events.
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/workflow.ts`: `TRANSITIONS` map, `changeStatus(user, id, {status, reason})`, `updateProgress(user, id, {progress})`, `allowedNextStatuses`/`needsReason` for UI. Both need `ticket.changeStatus`; reopen (COMPLETED→IN_PROGRESS) also HOD/CEO_OFFICE/CEO. Errors → 400 `TicketInputError("status"|"reason"|"progress")`, 403 ForbiddenError.
+- Events: `STATUS_CHANGED`/`REOPENED` (field `status`, reason on event) + reopen adds `FIELD_CHANGED completedAt → null`; `PROGRESS` (field `progress`). One ActivityLog `UPDATE` per call. Status update guarded by `updateMany where status = from` (concurrent change → 400).
+- BLOCKED sets `blockerReason` (cleared when leaving BLOCKED); COMPLETED sets `completedAt` + progress 100; reopen clears `completedAt`, `reopenCount++`. **S13 hook:** `assertCanComplete(tx, ticket)` in workflow.ts (no-op now, runs in the tx).
+- `isOverdue`/`isOpenStatus` now live in `src/lib/ticket-utils.ts` (query.ts keeps the SQL mirror `overdueWhere`).
+- UI: `StatusControl` (dropdown + confirm/reason dialog) and `ProgressForm` (slider) in `ticket-forms.tsx`; history renders status/reopen/progress events. Check: `pnpm exec tsx .harness/tmp/s09-check.ts`.
+- Follow-ups: AWAITING_APPROVAL→COMPLETED is not limited to approvers yet (S13 validation); reopen does not clear `validatedBy/At`.

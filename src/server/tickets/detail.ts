@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
+import { isOverdue } from "@/lib/ticket-utils";
 import { assertCan, type AuthzUser, type TicketResource } from "@/server/authz";
 import { prisma } from "@/server/db";
-import { isOverdue } from "./query";
 
 /** Relations needed to build a `TicketResource` (co-assignees + linked departments). */
 export const resourceInclude = {

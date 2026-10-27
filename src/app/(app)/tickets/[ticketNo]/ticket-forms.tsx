@@ -1,12 +1,26 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import type { Priority } from "@prisma/client";
+import type { Priority, TicketStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PRIORITIES, PRIORITY_LABELS } from "@/lib/constants";
-import { addCommentAction, updateTicketAction, type TicketFormState } from "./actions";
+import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
+import {
+  addCommentAction,
+  changeStatusAction,
+  updateProgressAction,
+  updateTicketAction,
+  type TicketFormState,
+} from "./actions";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -141,6 +155,123 @@ export function CommentForm({ ticketId, ticketNo }: { ticketId: string; ticketNo
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Posting…" : "Comment"}
       </Button>
+    </form>
+  );
+}
+
+export type StatusOption = { status: TicketStatus; needsReason: boolean };
+
+const REASON_LABEL: Partial<Record<TicketStatus, string>> = {
+  BLOCKED: "What is blocking this ticket?",
+  CANCELLED: "Why is it cancelled?",
+};
+
+/** Dropdown of the allowed next statuses; every change is confirmed in a dialog (reason when required). */
+export function StatusControl({
+  ticketId,
+  ticketNo,
+  status,
+  options,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  status: TicketStatus;
+  options: StatusOption[];
+}) {
+  const [target, setTarget] = useState<StatusOption | null>(null);
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    changeStatusAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+
+  useEffect(() => {
+    if (state.ok) setTarget(null);
+  }, [state]);
+
+  if (options.length === 0) return null;
+  const reopen = status === "COMPLETED";
+  const reasonLabel = target && (REASON_LABEL[target.status] ?? (reopen ? "Why is it reopened?" : "Note (optional)"));
+
+  return (
+    <>
+      <select
+        aria-label="Change status"
+        value=""
+        onChange={(e) => setTarget(options.find((o) => o.status === e.target.value) ?? null)}
+        className={`${selectClass} w-auto`}
+      >
+        <option value="" disabled>
+          Change status…
+        </option>
+        {options.map((o) => (
+          <option key={o.status} value={o.status}>
+            {reopen ? "Reopen (In progress)" : STATUS_LABELS[o.status]}
+          </option>
+        ))}
+      </select>
+      <Dialog open={!!target} onOpenChange={(open) => !open && setTarget(null)}>
+        <DialogContent>
+          {target && (
+            <form action={action} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>
+                  {STATUS_LABELS[status]} → {STATUS_LABELS[target.status]}
+                </DialogTitle>
+                <DialogDescription>The change and reason are kept in the ticket history.</DialogDescription>
+              </DialogHeader>
+              <input type="hidden" name="status" value={target.status} />
+              <div className="space-y-1.5">
+                <label htmlFor="reason" className="text-sm font-medium">
+                  {reasonLabel}
+                </label>
+                <Textarea id="reason" name="reason" rows={3} required={target.needsReason} maxLength={1000} />
+                <FieldError errors={state.fieldErrors?.reason} />
+              </div>
+              {state.error && !state.fieldErrors?.reason && <p className="text-sm text-destructive">{state.error}</p>}
+              <DialogFooter>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setTarget(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={pending}>
+                  {pending ? "Saving…" : "Confirm"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export function ProgressForm({ ticketId, ticketNo, progress }: { ticketId: string; ticketNo: string; progress: number }) {
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    updateProgressAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const [value, setValue] = useState(progress);
+
+  return (
+    <form action={action} className="space-y-1.5">
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          name="progress"
+          aria-label="Progress"
+          min={0}
+          max={100}
+          step={5}
+          value={value}
+          onChange={(e) => setValue(Number(e.target.value))}
+          className="flex-1 accent-primary"
+        />
+        <span className="w-10 text-right text-sm tabular-nums">{value}%</span>
+        <Button type="submit" size="sm" variant="outline" disabled={pending || value === progress}>
+          {pending ? "…" : "Save"}
+        </Button>
+      </div>
+      <FieldError errors={state.fieldErrors?.progress} />
+      {state.error && !state.fieldErrors?.progress && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }

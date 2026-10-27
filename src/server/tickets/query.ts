@@ -1,16 +1,13 @@
-import type { Prisma, TicketStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { CLOSED_STATUSES } from "@/lib/constants";
 import type { TicketFilters, TicketSortKey } from "@/lib/schemas/ticket-filters";
+import { isOverdue } from "@/lib/ticket-utils";
 import { ticketVisibilityWhere, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
 
 export const TICKET_PAGE_SIZE = 25;
 
-/** Overdue is computed, never stored: an open ticket whose due date has passed. */
-export function isOverdue(t: { status: TicketStatus; dueDate: Date | null }, now = new Date()): boolean {
-  return !!t.dueDate && t.dueDate < now && !CLOSED_STATUSES.includes(t.status);
-}
-
+/** SQL mirror of `isOverdue` (src/lib/ticket-utils.ts). */
 export function overdueWhere(now = new Date()): Prisma.TicketWhereInput {
   return { status: { notIn: [...CLOSED_STATUSES] }, dueDate: { lt: now } };
 }

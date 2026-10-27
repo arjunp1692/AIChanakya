@@ -13,7 +13,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S06 | Create ticket | B | FR-01 | sonnet | S04, S05 | Done (manual check) |
 | S07 | Ticket list, search and filters | B | §11 | sonnet | S06 | Done (manual check) |
 | S08 | Ticket detail, edit and comments | B | FR-04 | sonnet | S07 | Done (manual check) |
-| S09 | Status workflow state machine | B | §9 | opus | S08 | Todo |
+| S09 | Status workflow state machine | B | §9 | opus | S08 | Done (manual check) |
 | S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Todo |
 | S11 | Co-assignees and contributions | B | FR-03 | sonnet | S09 | Todo |
 | S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Todo |

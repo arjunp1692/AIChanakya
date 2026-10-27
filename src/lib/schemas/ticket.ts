@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRIORITIES } from "@/lib/constants";
+import { PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 
 const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
@@ -52,6 +52,22 @@ export const updateTicketSchema = z.object({
 });
 
 export type UpdateTicketInput = z.input<typeof updateTicketSchema>;
+
+/** Status change; `reason` is required for BLOCKED (becomes `blockerReason`), CANCELLED and reopen. */
+export const changeStatusSchema = z.object({
+  status: z.enum(TICKET_STATUSES, { error: "Choose a status" }),
+  reason: z.preprocess(blankToUndefined, z.string().trim().max(1000).optional()),
+});
+
+export type ChangeStatusInput = z.input<typeof changeStatusSchema>;
+
+export const updateProgressSchema = z.object({
+  progress: z.coerce
+    .number()
+    .int("Progress must be a whole number")
+    .min(0, "Progress must be 0–100")
+    .max(100, "Progress must be 0–100"),
+});
 
 export const addCommentSchema = z.object({
   body: z.string().trim().min(1, "Comment cannot be empty").max(10_000),

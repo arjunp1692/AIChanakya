@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/server/auth/session";
 import { serviceError, type ServiceErrorBody } from "@/server/errors";
 import { addComment, updateTicket } from "@/server/tickets/service";
+import { changeStatus, updateProgress } from "@/server/tickets/workflow";
 
 export type TicketFormState = Partial<ServiceErrorBody> & { ok?: boolean };
 
@@ -37,4 +38,24 @@ export async function addCommentAction(
 ): Promise<TicketFormState> {
   const user = await requireUser();
   return run(ticketNo, () => addComment(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function changeStatusAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => changeStatus(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function updateProgressAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => updateProgress(user, ticketId, Object.fromEntries(formData)));
 }

@@ -13,7 +13,9 @@ import { requireUser } from "@/server/auth/session";
 import { can, ForbiddenError } from "@/server/authz";
 import { prisma } from "@/server/db";
 import { getTicketDetail, type TicketDetail } from "@/server/tickets/detail";
-import { CommentForm, EditTicketForm } from "./ticket-forms";
+import { isOpenStatus } from "@/lib/ticket-utils";
+import { allowedNextStatuses, needsReason } from "@/server/tickets/workflow";
+import { CommentForm, EditTicketForm, ProgressForm, StatusControl } from "./ticket-forms";
 
 const badge = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap";
 const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" });
@@ -27,6 +29,8 @@ const FIELD_LABELS: Record<string, string> = {
   ownerId: "Owner",
   status: "Status",
   dueDate: "Due date",
+  completedAt: "Completed at",
+  progress: "Progress",
 };
 
 async function loadOrForbid(user: Awaited<ReturnType<typeof requireUser>>, ticketNo: string) {
@@ -110,6 +114,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const canEdit = can(user, "ticket.edit", t.resource);
   const canAssign = canEdit && can(user, "ticket.assign", t.resource);
   const canComment = can(user, "ticket.comment", t.resource);
+  const canChangeStatus = can(user, "ticket.changeStatus", t.resource);
+  const statusOptions = canChangeStatus
+    ? allowedNextStatuses(user, t.status).map((s) => ({ status: s, needsReason: needsReason(t.status, s) }))
+    : [];
 
   const owners = canAssign
     ? await prisma.user.findMany({
@@ -152,6 +160,16 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
           {t.overdue && <span className={cn(badge, OVERDUE_BADGE)}>Overdue</span>}
           {t.confidential && <span className={cn(badge, "bg-muted text-muted-foreground")}>Confidential</span>}
         </div>
+        {(statusOptions.length > 0 || (canChangeStatus && isOpenStatus(t.status))) && (
+          <div className="flex flex-wrap items-center gap-4">
+            <StatusControl ticketId={t.id} ticketNo={t.ticketNo} status={t.status} options={statusOptions} />
+            {canChangeStatus && isOpenStatus(t.status) && (
+              <div className="w-full max-w-sm">
+                <ProgressForm key={t.progress} ticketId={t.id} ticketNo={t.ticketNo} progress={t.progress} />
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
@@ -207,6 +225,16 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                           Changed {FIELD_LABELS[e.field ?? ""] ?? e.field}:{" "}
                           <span className="text-muted-foreground">{eventValue(e.field, e.fromValue, names)}</span> →{" "}
                           {eventValue(e.field, e.toValue, names)}
+                        </>
+                      ) : e.type === "STATUS_CHANGED" || e.type === "REOPENED" ? (
+                        <>
+                          {e.type === "REOPENED" ? "Reopened" : "Changed status"}:{" "}
+                          <span className="text-muted-foreground">{eventValue("status", e.fromValue, names)}</span> →{" "}
+                          {eventValue("status", e.toValue, names)}
+                        </>
+                      ) : e.type === "PROGRESS" ? (
+                        <>
+                          Progress: <span className="text-muted-foreground">{e.fromValue ?? 0}%</span> → {e.toValue}%
                         </>
                       ) : e.type === "COMMENT" ? (
                         "Commented"
