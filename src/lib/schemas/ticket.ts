@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
+import { CONTRIBUTION_STATUSES, PRIORITIES, TICKET_STATUSES } from "@/lib/constants";
 
 const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
@@ -87,4 +87,25 @@ export type ChangeDeadlineInput = z.input<typeof changeDeadlineSchema>;
 export const decideDeadlineSchema = z.object({
   changeId: z.string().min(1),
   approve: z.preprocess((v) => v === true || v === "true", z.boolean()),
+});
+
+/** Add a co-assignee (any department) with what they are responsible for. */
+export const addAssigneeSchema = z.object({
+  userId: z.preprocess(blankToUndefined, z.string({ error: "Choose a person" })),
+  responsibility: z.preprocess(
+    (v) => blankToUndefined(v) ?? "",
+    z.string().trim().min(1, "Describe their responsibility").max(500),
+  ),
+});
+
+export const removeAssigneeSchema = z.object({
+  assigneeId: z.string().min(1),
+});
+
+/** A co-assignee's update to their own contribution row. */
+export const updateContributionSchema = z.object({
+  assigneeId: z.string().min(1),
+  contributionStatus: z.enum(CONTRIBUTION_STATUSES, { error: "Choose a status" }),
+  progress: updateProgressSchema.shape.progress,
+  note: z.preprocess(blankToUndefined, z.string().trim().max(1000).optional()),
 });

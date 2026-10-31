@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import type { Priority, TicketStatus } from "@prisma/client";
+import type { ContributionStatus, Priority, TicketStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,9 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/constants";
 import {
+  CONTRIBUTION_LABELS,
+  CONTRIBUTION_STATUSES,
+  PRIORITIES,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+} from "@/lib/constants";
+import {
+  addAssigneeAction,
   addCommentAction,
+  removeAssigneeAction,
+  updateContributionAction,
   changeDeadlineAction,
   changeStatusAction,
   decideDeadlineAction,
@@ -369,6 +378,187 @@ export function DeadlineDecision({ ticketId, ticketNo, changeId }: { ticketId: s
         </Button>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+    </form>
+  );
+}
+
+/** "Add co-assignee" button + dialog. `people` = active users of any department (owner excluded). */
+export function AddAssigneeForm({
+  ticketId,
+  ticketNo,
+  people,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  people: { id: string; name: string; dept: string | null }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    addAssigneeAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const errors = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Add co-assignee
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Add co-assignee</DialogTitle>
+              <DialogDescription>
+                Co-assignees from any department contribute; the owner stays accountable.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <label htmlFor="as-userId" className="text-sm font-medium">
+                Person
+              </label>
+              <select id="as-userId" name="userId" required defaultValue="" className={selectClass}>
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.dept && ` (${p.dept})`}
+                  </option>
+                ))}
+              </select>
+              <FieldError errors={errors.userId} />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="as-responsibility" className="text-sm font-medium">
+                Responsibility
+              </label>
+              <Input id="as-responsibility" name="responsibility" required maxLength={500} />
+              <FieldError errors={errors.responsibility} />
+            </div>
+            {state.error && !errors.userId && !errors.responsibility && (
+              <p className="text-sm text-destructive">{state.error}</p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Adding…" : "Add"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export function RemoveAssigneeButton({
+  ticketId,
+  ticketNo,
+  assigneeId,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  assigneeId: string;
+}) {
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    removeAssigneeAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="assigneeId" value={assigneeId} />
+      <Button type="submit" size="sm" variant="ghost" disabled={pending}>
+        {pending ? "…" : "Remove"}
+      </Button>
+      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+    </form>
+  );
+}
+
+/** The signed-in co-assignee's own contribution: status, progress and note. */
+export function ContributionForm({
+  ticketId,
+  ticketNo,
+  assigneeId,
+  contributionStatus,
+  progress,
+  note,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  assigneeId: string;
+  contributionStatus: ContributionStatus;
+  progress: number;
+  note: string | null;
+}) {
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    updateContributionAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const [value, setValue] = useState(progress);
+  const errors = state.fieldErrors ?? {};
+
+  return (
+    <form action={action} className="space-y-3 rounded-md border border-divider p-3">
+      <p className="text-sm font-semibold">Update my contribution</p>
+      <input type="hidden" name="assigneeId" value={assigneeId} />
+      <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+        <div className="space-y-1.5">
+          <label htmlFor="ct-status" className="text-sm font-medium">
+            Status
+          </label>
+          <select id="ct-status" name="contributionStatus" defaultValue={contributionStatus} className={selectClass}>
+            {CONTRIBUTION_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {CONTRIBUTION_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <FieldError errors={errors.contributionStatus} />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="ct-progress" className="text-sm font-medium">
+            Progress
+          </label>
+          <div className="flex h-9 items-center gap-3">
+            <input
+              id="ct-progress"
+              type="range"
+              name="progress"
+              min={0}
+              max={100}
+              step={5}
+              value={value}
+              onChange={(e) => setValue(Number(e.target.value))}
+              className="flex-1 accent-primary"
+            />
+            <span className="w-10 text-right text-sm tabular-nums">{value}%</span>
+          </div>
+          <FieldError errors={errors.progress} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="ct-note" className="text-sm font-medium">
+          Note
+        </label>
+        <Textarea id="ct-note" name="note" rows={2} maxLength={1000} defaultValue={note ?? ""} />
+        <FieldError errors={errors.note} />
+      </div>
+      {state.error && !errors.contributionStatus && !errors.progress && !errors.note && (
+        <p className="text-sm text-destructive">{state.error}</p>
+      )}
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Saving…" : "Save contribution"}
+      </Button>
     </form>
   );
 }

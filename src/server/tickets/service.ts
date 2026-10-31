@@ -97,6 +97,9 @@ export async function updateTicket(user: AuthzUser, ticketId: string, input: unk
       where: { id: data.ownerId, active: true, departmentId: ticket.departmentId },
     });
     if (!owner) throw new TicketInputError("ownerId", "Owner must be an active member of the department");
+    if (resource.assigneeIds?.includes(owner.id)) {
+      throw new TicketInputError("ownerId", "Remove this person as co-assignee before making them the owner");
+    }
   }
   if (fields.length === 0) return ticket;
 

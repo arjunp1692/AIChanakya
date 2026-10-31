@@ -20,4 +20,9 @@ Multiple people across departments can contribute while ownership stays unambigu
 - Using a seeded cross-dept ticket: log in as the co-assignee, update own contribution (OK), attempt status change (403), attempt another contributor's row (403).
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/tickets/assignees.ts`: `addAssignee`/`removeAssignee` (need `ticket.assign`; add only on open tickets, any dept, owner/duplicate → 400) and `updateContribution` (needs `ticket.contribute` **and** row.userId === caller, else 403; DONE forces progress 100). Each = TicketEvent + ActivityLog (`entity: "TicketAssignee"`) in one tx.
+- Events: `ASSIGNEE_ADDED`/`ASSIGNEE_REMOVED` (field `assignee`, user id; responsibility in `reason`), `CONTRIBUTION` (field `contribution`, from/to JSON `{status,progress}`, note in `reason`).
+- Migration `contributions`: `ContributionStatus.BLOCKED`, `TicketAssignee.note`. `updateTicket` now rejects making a co-assignee the owner (400).
+- UI: Contributions card (table + `AddAssigneeForm`, `RemoveAssigneeButton`, own `ContributionForm`) in ticket page main column; replaced sidebar co-assignee list. Constants `CONTRIBUTION_STATUSES/LABELS/BADGE`.
+- Check: `pnpm exec tsx .harness/tmp/s11-check.ts` (mutates seeded KN-EDT-2026-00001). `db:reset` is blocked for agents by Prisma; the migration was applied with `migrate dev`.
+- Follow-ups: co-assignee contributions don't roll up into ticket progress; removed co-assignee keeps no history row of their contribution beyond events.

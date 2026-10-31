@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
+  CONTRIBUTION_BADGE,
+  CONTRIBUTION_LABELS,
   OVERDUE_BADGE,
   PENDING_BANNER,
   PRIORITY_BADGE,
@@ -18,12 +20,16 @@ import { getTicketDetail, type TicketDetail } from "@/server/tickets/detail";
 import { isOpenStatus } from "@/lib/ticket-utils";
 import { allowedNextStatuses, needsReason } from "@/server/tickets/workflow";
 import { canDecideDeadline, deadlineNeedsApproval } from "@/server/tickets/deadline";
+import type { ContributionStatus } from "@prisma/client";
 import {
+  AddAssigneeForm,
   CommentForm,
+  ContributionForm,
   DeadlineControl,
   DeadlineDecision,
   EditTicketForm,
   ProgressForm,
+  RemoveAssigneeButton,
   StatusControl,
 } from "./ticket-forms";
 
@@ -63,11 +69,22 @@ async function loadOrForbid(user: Awaited<ReturnType<typeof requireUser>>, ticke
 /** Human value for a history entry: user IDs → names, enum values → labels, ISO dates → IST. */
 function eventValue(field: string | null, value: string | null, names: Map<string, string>): string {
   if (value === null) return "—";
-  if (field === "ownerId") return names.get(value) ?? value;
+  if (field === "ownerId" || field === "assignee") return names.get(value) ?? value;
   if (field === "priority" && value in PRIORITY_LABELS) return PRIORITY_LABELS[value as keyof typeof PRIORITY_LABELS];
   if ((field === "status" || field === null) && value in STATUS_LABELS) return STATUS_LABELS[value as keyof typeof STATUS_LABELS];
   if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return fmtDateTime(new Date(value));
   return value.length > 120 ? `${value.slice(0, 120)}…` : value;
+}
+
+/** CONTRIBUTION event value (`{"status","progress"}` JSON) → "In progress · 40%". */
+function contributionValue(value: string | null): string {
+  if (!value) return "—";
+  try {
+    const v = JSON.parse(value) as { status: ContributionStatus; progress: number };
+    return `${CONTRIBUTION_LABELS[v.status] ?? v.status} · ${v.progress}%`;
+  } catch {
+    return value;
+  }
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -140,6 +157,19 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const needsApproval = canChangeDeadline && (await deadlineNeedsApproval(user));
   const pendingDeadline = t.deadlineChanges[0];
   const canDecide = !!pendingDeadline && canDecideDeadline(user, t.resource);
+  const canManageAssignees = can(user, "ticket.assign", t.resource);
+  const myContribution = isOpenStatus(t.status) ? t.assignees.find((a) => a.userId === user.id) : undefined;
+
+  const people =
+    canManageAssignees && isOpenStatus(t.status)
+      ? (
+          await prisma.user.findMany({
+            where: { active: true, id: { notIn: [t.ownerId, ...t.assignees.map((a) => a.userId)] } },
+            select: { id: true, name: true, department: { select: { code: true } } },
+            orderBy: { name: "asc" },
+          })
+        ).map((u) => ({ id: u.id, name: u.name, dept: u.department?.code ?? null }))
+      : null;
 
   const owners = canAssign
     ? await prisma.user.findMany({
@@ -149,8 +179,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
       })
     : null;
 
-  // Resolve owner IDs referenced in history to names.
-  const ownerIds = t.events.flatMap((e) => (e.field === "ownerId" ? [e.fromValue, e.toValue] : []));
+  // Resolve owner / co-assignee IDs referenced in history to names.
+  const ownerIds = t.events.flatMap((e) =>
+    e.field === "ownerId" || e.field === "assignee" ? [e.fromValue, e.toValue] : [],
+  );
   const ids = [...new Set(ownerIds.filter((v): v is string => !!v))];
   const names = new Map(
     (ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : []).map(
@@ -234,6 +266,68 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
+              <SectionHeader title={<>Contributions ({t.assignees.length})</>}>
+                {people && <AddAssigneeForm ticketId={t.id} ticketNo={t.ticketNo} people={people} />}
+              </SectionHeader>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <p className="text-muted-foreground">
+                Owner (accountable): <span className="font-semibold text-career-dark">{t.owner.name}</span>
+              </p>
+              {t.assignees.length === 0 ? (
+                <p className="text-muted-foreground">No co-assignees.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="text-xs text-muted-foreground">
+                      <tr className="border-b border-divider">
+                        <th className="py-2 pr-3 font-medium">Co-assignee</th>
+                        <th className="py-2 pr-3 font-medium">Responsibility</th>
+                        <th className="py-2 pr-3 font-medium">Status</th>
+                        <th className="py-2 pr-3 font-medium">Progress</th>
+                        <th className="py-2 pr-3 font-medium">Note</th>
+                        {canManageAssignees && <th className="py-2" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {t.assignees.map((a) => (
+                        <tr key={a.id} className="border-b border-divider align-top last:border-0">
+                          <td className="py-2 pr-3 whitespace-nowrap">{a.user.name}</td>
+                          <td className="py-2 pr-3">{a.responsibility || "—"}</td>
+                          <td className="py-2 pr-3">
+                            <span className={cn(badge, CONTRIBUTION_BADGE[a.contributionStatus])}>
+                              {CONTRIBUTION_LABELS[a.contributionStatus]}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3 tabular-nums">{a.progress}%</td>
+                          <td className="py-2 pr-3 whitespace-pre-wrap text-muted-foreground">{a.note ?? "—"}</td>
+                          {canManageAssignees && (
+                            <td className="py-1">
+                              <RemoveAssigneeButton ticketId={t.id} ticketNo={t.ticketNo} assigneeId={a.id} />
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {myContribution && (
+                <ContributionForm
+                  key={myContribution.updatedAt.getTime()}
+                  ticketId={t.id}
+                  ticketNo={t.ticketNo}
+                  assigneeId={myContribution.id}
+                  contributionStatus={myContribution.contributionStatus}
+                  progress={myContribution.progress}
+                  note={myContribution.note}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <SectionHeader title={<>Comments ({t.comments.length})</>} />
             </CardHeader>
             <CardContent className="space-y-4">
@@ -289,6 +383,16 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                           </span>{" "}
                           → {e.toValue ? fmtDate(new Date(e.toValue)) : "—"}
                         </>
+                      ) : e.type === "ASSIGNEE_ADDED" ? (
+                        <>Added co-assignee {eventValue("assignee", e.toValue, names)}</>
+                      ) : e.type === "ASSIGNEE_REMOVED" ? (
+                        <>Removed co-assignee {eventValue("assignee", e.fromValue, names)}</>
+                      ) : e.type === "CONTRIBUTION" ? (
+                        <>
+                          Updated contribution:{" "}
+                          <span className="text-muted-foreground">{contributionValue(e.fromValue)}</span> →{" "}
+                          {contributionValue(e.toValue)}
+                        </>
                       ) : e.type === "COMMENT" ? (
                         "Commented"
                       ) : e.type === "CREATED" ? (
@@ -302,7 +406,12 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                         </>
                       )}
                     </p>
-                    {e.reason && <p className="text-muted-foreground">Reason: {e.reason}</p>}
+                    {e.reason && (
+                      <p className="text-muted-foreground">
+                        {e.type === "CONTRIBUTION" ? "Note" : e.type === "ASSIGNEE_ADDED" ? "Responsibility" : "Reason"}:{" "}
+                        {e.reason}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -317,27 +426,6 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
             </CardHeader>
             <CardContent>
               <FieldsPanel t={t} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <SectionHeader title="Co-assignees" />
-            </CardHeader>
-            <CardContent className="text-sm">
-              {t.assignees.length === 0 ? (
-                <p className="text-muted-foreground">None.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {t.assignees.map((a) => (
-                    <li key={a.id}>
-                      {a.user.name}
-                      {a.responsibility && <span className="text-muted-foreground"> — {a.responsibility}</span>}
-                      <span className="text-muted-foreground"> · {a.progress}%</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </CardContent>
           </Card>
 

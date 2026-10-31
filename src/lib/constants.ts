@@ -1,4 +1,4 @@
-import type { Priority, ReportPriority, TicketStatus } from "@prisma/client";
+import type { ContributionStatus, Priority, ReportPriority, TicketStatus } from "@prisma/client";
 
 export const TICKET_STATUSES = [
   "NEW",
@@ -51,6 +51,27 @@ export const PRIORITY_BADGE: Record<Priority, string> = {
   HIGH: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100",
   MEDIUM: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100",
   LOW: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+};
+
+export const CONTRIBUTION_STATUSES = [
+  "NOT_STARTED",
+  "IN_PROGRESS",
+  "DONE",
+  "BLOCKED",
+] as const satisfies readonly ContributionStatus[];
+
+export const CONTRIBUTION_LABELS: Record<ContributionStatus, string> = {
+  NOT_STARTED: "Not started",
+  IN_PROGRESS: "In progress",
+  DONE: "Done",
+  BLOCKED: "Blocked",
+};
+
+export const CONTRIBUTION_BADGE: Record<ContributionStatus, string> = {
+  NOT_STARTED: STATUS_BADGE.NEW,
+  IN_PROGRESS: STATUS_BADGE.IN_PROGRESS,
+  DONE: STATUS_BADGE.COMPLETED,
+  BLOCKED: STATUS_BADGE.BLOCKED,
 };
 
 export const REPORT_PRIORITY_LABELS: Record<ReportPriority, string> = {

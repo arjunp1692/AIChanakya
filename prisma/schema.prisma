@@ -41,6 +41,7 @@ enum ContributionStatus {
   NOT_STARTED
   IN_PROGRESS
   DONE
+  BLOCKED
 }
 
 enum AttachmentKind {
@@ -215,6 +216,8 @@ model TicketAssignee {
   responsibility     String             @default("")
   contributionStatus ContributionStatus @default(NOT_STARTED)
   progress           Int                @default(0)
+  /// Co-assignee's latest note on their contribution.
+  note               String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
