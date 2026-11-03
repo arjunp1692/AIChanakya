@@ -34,6 +34,11 @@ const columns = [
       <Link href={`/tickets/${c.row.original.ticketNo}`} className="font-semibold text-career-dark transition-colors hover:text-primary">
         {c.getValue()}
         {c.row.original.confidential && <span className="ml-1 text-xs font-normal text-career-muted">(confidential)</span>}
+        {c.row.original._count.dependencies > 0 && (
+          <span className={cn(badge, "ml-2 bg-chip-bg text-primary")} title="Unresolved dependencies">
+            Waiting on {c.row.original._count.dependencies}
+          </span>
+        )}
       </Link>
     ),
   }),

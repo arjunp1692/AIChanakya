@@ -109,3 +109,24 @@ export const updateContributionSchema = z.object({
   progress: updateProgressSchema.shape.progress,
   note: z.preprocess(blankToUndefined, z.string().trim().max(1000).optional()),
 });
+
+/** Add a dependency: another ticket (by ticket ID) or a free-text external prerequisite. */
+export const addDependencySchema = z
+  .object({
+    kind: z.enum(["ticket", "external"], { error: "Choose a dependency type" }),
+    dependsOn: z.preprocess(blankToUndefined, z.string().trim().max(60).optional()),
+    externalPrerequisite: z.preprocess(blankToUndefined, z.string().trim().max(500).optional()),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === "ticket" && !v.dependsOn) {
+      ctx.addIssue({ code: "custom", path: ["dependsOn"], message: "Choose a ticket" });
+    }
+    if (v.kind === "external" && !v.externalPrerequisite) {
+      ctx.addIssue({ code: "custom", path: ["externalPrerequisite"], message: "Describe the external prerequisite" });
+    }
+  });
+
+/** Remove a dependency, or mark an external prerequisite resolved. */
+export const dependencyIdSchema = z.object({
+  dependencyId: z.string().min(1),
+});

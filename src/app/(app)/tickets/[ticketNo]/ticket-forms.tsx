@@ -23,6 +23,10 @@ import {
 import {
   addAssigneeAction,
   addCommentAction,
+  addDependencyAction,
+  removeDependencyAction,
+  resolveDependencyAction,
+  searchDependencyTargetsAction,
   removeAssigneeAction,
   updateContributionAction,
   changeDeadlineAction,
@@ -559,6 +563,126 @@ export function ContributionForm({
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Saving…" : "Save contribution"}
       </Button>
+    </form>
+  );
+}
+
+/** "Waiting on": another ticket (searched by ID or title) or a free-text external prerequisite. */
+export function AddDependencyForm({ ticketId, ticketNo }: { ticketId: string; ticketNo: string }) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<"ticket" | "external">("ticket");
+  const [matches, setMatches] = useState<{ ticketNo: string; title: string; status: TicketStatus }[]>([]);
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    addDependencyAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const seq = useRef(0);
+  const errors = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
+
+  async function search(q: string) {
+    const n = ++seq.current;
+    const found = q.trim().length < 2 ? [] : await searchDependencyTargetsAction(ticketId, q);
+    if (n === seq.current) setMatches(found);
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Add dependency
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Add dependency</DialogTitle>
+              <DialogDescription>This ticket waits on another ticket or an external prerequisite.</DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-4 text-sm">
+              {(["ticket", "external"] as const).map((k) => (
+                <label key={k} className="flex items-center gap-1.5">
+                  <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
+                  {k === "ticket" ? "Another ticket" : "External prerequisite"}
+                </label>
+              ))}
+            </div>
+            {kind === "ticket" ? (
+              <div className="space-y-1.5">
+                <label htmlFor="dep-dependsOn" className="text-sm font-medium">
+                  Ticket (search by ID or title)
+                </label>
+                <Input
+                  id="dep-dependsOn"
+                  name="dependsOn"
+                  list="dep-matches"
+                  autoComplete="off"
+                  placeholder="KN-…"
+                  maxLength={60}
+                  onChange={(e) => void search(e.target.value)}
+                />
+                <datalist id="dep-matches">
+                  {matches.map((m) => (
+                    <option key={m.ticketNo} value={m.ticketNo}>
+                      {m.title} · {STATUS_LABELS[m.status]}
+                    </option>
+                  ))}
+                </datalist>
+                <FieldError errors={errors.dependsOn} />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label htmlFor="dep-external" className="text-sm font-medium">
+                  External prerequisite
+                </label>
+                <Input id="dep-external" name="externalPrerequisite" maxLength={500} placeholder="e.g. Vendor quote" />
+                <FieldError errors={errors.externalPrerequisite} />
+              </div>
+            )}
+            {state.error && !errors.dependsOn && !errors.externalPrerequisite && (
+              <p className="text-sm text-destructive">{state.error}</p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Adding…" : "Add"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** Remove a dependency, or mark an external prerequisite resolved. */
+export function DependencyButton({
+  ticketId,
+  ticketNo,
+  dependencyId,
+  op,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  dependencyId: string;
+  op: "remove" | "resolve";
+}) {
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    (op === "remove" ? removeDependencyAction : resolveDependencyAction).bind(null, ticketId, ticketNo),
+    {},
+  );
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="dependencyId" value={dependencyId} />
+      <Button type="submit" size="sm" variant="ghost" disabled={pending}>
+        {pending ? "…" : op === "remove" ? "Remove" : "Mark resolved"}
+      </Button>
+      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }

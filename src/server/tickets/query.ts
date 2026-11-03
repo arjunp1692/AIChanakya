@@ -4,6 +4,7 @@ import type { TicketFilters, TicketSortKey } from "@/lib/schemas/ticket-filters"
 import { isOverdue } from "@/lib/ticket-utils";
 import { ticketVisibilityWhere, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
+import { unresolvedDependencyWhere } from "./dependencies";
 
 export const TICKET_PAGE_SIZE = 25;
 
@@ -69,6 +70,8 @@ const listSelect = {
   confidential: true,
   department: { select: { code: true, name: true } },
   owner: { select: { id: true, name: true } },
+  // Unresolved "waiting on" count for the list badge.
+  _count: { select: { dependencies: { where: unresolvedDependencyWhere } } },
 } satisfies Prisma.TicketSelect;
 
 export type TicketListRow = Prisma.TicketGetPayload<{ select: typeof listSelect }> & { overdue: boolean };

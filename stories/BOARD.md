@@ -17,7 +17,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S39 | Kubera Now brand theme | B | §11 | sonnet | S04 | Done (manual check) |
 | S10 | Deadline changes with reason and approval | B | §9 | sonnet | S09 | Done (manual check) |
 | S11 | Co-assignees and contributions | B | FR-03 | sonnet | S09 | Done (manual check) |
-| S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Todo |
+| S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Done (manual check) |
 | S13 | Attachments, evidence and completion validation | B | §8 | sonnet | S09 | Todo |
 | S14 | HoD daily report form | C | FR-02 | sonnet | S11, S12 | Todo |
 | S15 | Report submission → ticket updates | C | FR-02 | opus | S14, S10, S13 | Todo |

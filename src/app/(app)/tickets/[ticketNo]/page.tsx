@@ -21,12 +21,15 @@ import { isOpenStatus } from "@/lib/ticket-utils";
 import { allowedNextStatuses, needsReason } from "@/server/tickets/workflow";
 import { canDecideDeadline, deadlineNeedsApproval } from "@/server/tickets/deadline";
 import type { ContributionStatus } from "@prisma/client";
+import { isDependencyResolved } from "@/server/tickets/dependencies";
 import {
   AddAssigneeForm,
+  AddDependencyForm,
   CommentForm,
   ContributionForm,
   DeadlineControl,
   DeadlineDecision,
+  DependencyButton,
   EditTicketForm,
   ProgressForm,
   RemoveAssigneeButton,
@@ -55,6 +58,14 @@ const DEADLINE_EVENTS: Record<string, string> = {
   DEADLINE_CHANGED: "Changed deadline",
   DEADLINE_REQUESTED: "Requested deadline change",
   DEADLINE_REJECTED: "Rejected deadline change",
+};
+
+const DEPENDENCY_EVENTS: Record<string, string> = {
+  DEPENDENCY_ADDED: "Now waiting on",
+  DEPENDENCY_REMOVED: "No longer waiting on",
+  DEPENDENCY_RESOLVED: "External prerequisite resolved:",
+  DEPENDENT_ADDED: "Now blocking",
+  DEPENDENT_REMOVED: "No longer blocking",
 };
 
 async function loadOrForbid(user: Awaited<ReturnType<typeof requireUser>>, ticketNo: string) {
@@ -393,6 +404,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                           <span className="text-muted-foreground">{contributionValue(e.fromValue)}</span> →{" "}
                           {contributionValue(e.toValue)}
                         </>
+                      ) : e.type in DEPENDENCY_EVENTS ? (
+                        <>
+                          {DEPENDENCY_EVENTS[e.type]} {e.toValue ?? e.fromValue}
+                        </>
                       ) : e.type === "COMMENT" ? (
                         "Commented"
                       ) : e.type === "CREATED" ? (
@@ -431,33 +446,67 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <SectionHeader title="Dependencies" />
+              <SectionHeader title="Dependencies">
+                {canEdit && isOpenStatus(t.status) && <AddDependencyForm ticketId={t.id} ticketNo={t.ticketNo} />}
+              </SectionHeader>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {t.dependencies.length === 0 && t.dependents.length === 0 && (
-                <p className="text-muted-foreground">None.</p>
-              )}
-              {t.dependencies.map((d) => (
-                <p key={d.id}>
-                  Depends on{" "}
-                  {d.dependsOnTicket ? (
-                    <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.dependsOnTicket.ticketNo}`}>
-                      {d.dependsOnTicket.ticketNo}
-                    </a>
-                  ) : (
-                    d.externalPrerequisite
-                  )}
-                  {d.resolved && <span className="text-muted-foreground"> (resolved)</span>}
-                </p>
-              ))}
-              {t.dependents.map((d) => (
-                <p key={d.id}>
-                  Blocks{" "}
-                  <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.ticket.ticketNo}`}>
-                    {d.ticket.ticketNo}
-                  </a>
-                </p>
-              ))}
+            <CardContent className="space-y-4 text-sm">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Waiting on ({t.dependencies.length})</p>
+                {t.dependencies.length === 0 && <p className="text-muted-foreground">Nothing.</p>}
+                <ul className="space-y-2">
+                  {t.dependencies.map((d) => {
+                    const resolved = isDependencyResolved(d);
+                    return (
+                      <li key={d.id} className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 space-y-1">
+                          {d.dependsOnTicket ? (
+                            <>
+                              <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.dependsOnTicket.ticketNo}`}>
+                                {d.dependsOnTicket.ticketNo}
+                              </a>{" "}
+                              <span className="line-clamp-2">{d.dependsOnTicket.title}</span>
+                              <span className={cn(badge, STATUS_BADGE[d.dependsOnTicket.status])}>
+                                {STATUS_LABELS[d.dependsOnTicket.status]}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="whitespace-pre-wrap">{d.externalPrerequisite}</span>{" "}
+                              <span className={cn(badge, resolved ? STATUS_BADGE.COMPLETED : STATUS_BADGE.BLOCKED)}>
+                                External · {resolved ? "Resolved" : "Unresolved"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <div className="flex shrink-0">
+                            {!d.dependsOnTicket && !d.resolved && (
+                              <DependencyButton ticketId={t.id} ticketNo={t.ticketNo} dependencyId={d.id} op="resolve" />
+                            )}
+                            <DependencyButton ticketId={t.id} ticketNo={t.ticketNo} dependencyId={d.id} op="remove" />
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Blocking ({t.dependents.length})</p>
+                {t.dependents.length === 0 && <p className="text-muted-foreground">Nothing.</p>}
+                <ul className="space-y-2">
+                  {t.dependents.map((d) => (
+                    <li key={d.id} className="space-y-1">
+                      <a className="font-mono text-content-link underline underline-offset-2" href={`/tickets/${d.ticket.ticketNo}`}>
+                        {d.ticket.ticketNo}
+                      </a>{" "}
+                      <span className="line-clamp-2">{d.ticket.title}</span>
+                      <span className={cn(badge, STATUS_BADGE[d.ticket.status])}>{STATUS_LABELS[d.ticket.status]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </CardContent>
           </Card>
 

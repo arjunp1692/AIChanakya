@@ -7,6 +7,12 @@ import { addComment, updateTicket } from "@/server/tickets/service";
 import { changeStatus, updateProgress } from "@/server/tickets/workflow";
 import { changeDeadline, decideDeadline } from "@/server/tickets/deadline";
 import { addAssignee, removeAssignee, updateContribution } from "@/server/tickets/assignees";
+import {
+  addDependency,
+  removeDependency,
+  resolveDependency,
+  searchDependencyTargets,
+} from "@/server/tickets/dependencies";
 
 export type TicketFormState = Partial<ServiceErrorBody> & { ok?: boolean };
 
@@ -110,4 +116,40 @@ export async function updateContributionAction(
 ): Promise<TicketFormState> {
   const user = await requireUser();
   return run(ticketNo, () => updateContribution(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function addDependencyAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => addDependency(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function removeDependencyAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => removeDependency(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function resolveDependencyAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => resolveDependency(user, ticketId, Object.fromEntries(formData)));
+}
+
+/** Ticket picker for "Waiting on": visible tickets matching an ID or title fragment. */
+export async function searchDependencyTargetsAction(ticketId: string, q: string) {
+  const user = await requireUser();
+  return searchDependencyTargets(user, ticketId, q);
 }
