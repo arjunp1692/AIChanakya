@@ -130,3 +130,23 @@ export const addDependencySchema = z
 export const dependencyIdSchema = z.object({
   dependencyId: z.string().min(1),
 });
+
+/** Add an attachment: an uploaded file or a link. `isEvidence` marks it as completion evidence. */
+export const addAttachmentSchema = z
+  .object({
+    kind: z.enum(["FILE", "LINK"], { error: "Choose a file or a link" }),
+    file: z.preprocess((v) => (v instanceof File && v.size > 0 ? v : undefined), z.instanceof(File).optional()),
+    url: z.preprocess(
+      blankToUndefined,
+      z
+        .url({ protocol: /^https?$/, error: "Enter a valid http(s) link" })
+        .max(2000)
+        .optional(),
+    ),
+    name: z.preprocess(blankToUndefined, z.string().trim().max(200).optional()),
+    isEvidence: z.preprocess((v) => v === true || v === "true" || v === "on", z.boolean()),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === "FILE" && !v.file) ctx.addIssue({ code: "custom", path: ["file"], message: "Choose a file" });
+    if (v.kind === "LINK" && !v.url) ctx.addIssue({ code: "custom", path: ["url"], message: "Enter a link" });
+  });

@@ -143,8 +143,9 @@ const SETTINGS: Record<string, Prisma.InputJsonValue> = {
   "escalation.missedReportsBeforeEscalation": 1,
   "escalation.criticalBlockerImmediate": true,
   "escalation.decisionOverdueHours": 0,
-  // OWNER | HOD | CRITICAL_ONLY (PRD §17 decision 4)
-  "completion.validationPolicy": "CRITICAL_ONLY",
+  // Priorities whose completion needs an evidence attachment / HOD validation (PRD §17 decision 4, S13).
+  "completion.requireEvidence": ["CRITICAL", "HIGH"],
+  "completion.requireValidation": ["CRITICAL", "HIGH"],
   // OWN_DEPT | ALL_SHARED | HYBRID (PRD §17 decision 5)
   "visibility.crossDepartment": "HYBRID",
   "notifications.channels": ["IN_APP", "EMAIL"],

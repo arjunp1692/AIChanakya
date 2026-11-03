@@ -23,6 +23,7 @@ import {
 import {
   addAssigneeAction,
   addCommentAction,
+  addAttachmentAction,
   addDependencyAction,
   removeDependencyAction,
   resolveDependencyAction,
@@ -174,7 +175,8 @@ export function CommentForm({ ticketId, ticketNo }: { ticketId: string; ticketNo
   );
 }
 
-export type StatusOption = { status: TicketStatus; needsReason: boolean };
+/** `label` overrides the status name (e.g. "Validate (Completed)"); `hint` is shown in the confirm dialog. */
+export type StatusOption = { status: TicketStatus; needsReason: boolean; label?: string; hint?: string };
 
 const REASON_LABEL: Partial<Record<TicketStatus, string>> = {
   BLOCKED: "What is blocking this ticket?",
@@ -220,7 +222,7 @@ export function StatusControl({
         </option>
         {options.map((o) => (
           <option key={o.status} value={o.status}>
-            {reopen ? "Reopen (In progress)" : STATUS_LABELS[o.status]}
+            {o.label ?? (reopen ? "Reopen (In progress)" : STATUS_LABELS[o.status])}
           </option>
         ))}
       </select>
@@ -230,9 +232,12 @@ export function StatusControl({
             <form action={action} className="space-y-4">
               <DialogHeader>
                 <DialogTitle>
-                  {STATUS_LABELS[status]} → {STATUS_LABELS[target.status]}
+                  {STATUS_LABELS[status]} → {target.label ?? STATUS_LABELS[target.status]}
                 </DialogTitle>
-                <DialogDescription>The change and reason are kept in the ticket history.</DialogDescription>
+                <DialogDescription>
+                  {target.hint && <span className="block pb-1 font-medium text-career-dark">{target.hint}</span>}
+                  The change and reason are kept in the ticket history.
+                </DialogDescription>
               </DialogHeader>
               <input type="hidden" name="status" value={target.status} />
               <div className="space-y-1.5">
@@ -684,5 +689,98 @@ export function DependencyButton({
       </Button>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
+  );
+}
+
+/** "Add attachment" button + dialog: upload a file (≤10 MB) or add a link, optionally marked as evidence. */
+export function AddAttachmentForm({
+  ticketId,
+  ticketNo,
+  accept,
+  evidenceRequired,
+}: {
+  ticketId: string;
+  ticketNo: string;
+  /** `accept` attribute for the file input (allowlisted extensions). */
+  accept: string;
+  evidenceRequired: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<"FILE" | "LINK">("FILE");
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    addAttachmentAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const errors = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Add
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Add attachment</DialogTitle>
+              <DialogDescription>
+                Upload a file (max 10 MB) or add a link.
+                {evidenceRequired && " Completing this ticket needs at least one attachment marked as evidence."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-4 text-sm">
+              {(["FILE", "LINK"] as const).map((k) => (
+                <label key={k} className="flex items-center gap-1.5">
+                  <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
+                  {k === "FILE" ? "File" : "Link"}
+                </label>
+              ))}
+            </div>
+            {kind === "FILE" ? (
+              <div className="space-y-1.5">
+                <label htmlFor="att-file" className="text-sm font-medium">
+                  File
+                </label>
+                <Input id="att-file" name="file" type="file" accept={accept} required />
+                <FieldError errors={errors.file} />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <label htmlFor="att-url" className="text-sm font-medium">
+                    Link
+                  </label>
+                  <Input id="att-url" name="url" type="url" placeholder="https://…" maxLength={2000} required />
+                  <FieldError errors={errors.url} />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="att-name" className="text-sm font-medium">
+                    Label (optional)
+                  </label>
+                  <Input id="att-name" name="name" maxLength={200} />
+                </div>
+              </>
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="isEvidence" defaultChecked={evidenceRequired} />
+              Evidence of completion
+            </label>
+            {state.error && !errors.file && !errors.url && <p className="text-sm text-destructive">{state.error}</p>}
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Uploading…" : "Add"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

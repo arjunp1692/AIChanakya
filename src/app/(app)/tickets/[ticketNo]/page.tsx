@@ -18,12 +18,15 @@ import { can, ForbiddenError } from "@/server/authz";
 import { prisma } from "@/server/db";
 import { getTicketDetail, type TicketDetail } from "@/server/tickets/detail";
 import { isOpenStatus } from "@/lib/ticket-utils";
-import { allowedNextStatuses, needsReason } from "@/server/tickets/workflow";
+import { allowedNextStatuses, completionPolicy, needsReason } from "@/server/tickets/workflow";
+import { canAttach } from "@/server/tickets/attachments";
+import { ALLOWED_FILE_TYPES } from "@/server/storage";
 import { canDecideDeadline, deadlineNeedsApproval } from "@/server/tickets/deadline";
-import type { ContributionStatus } from "@prisma/client";
+import type { ContributionStatus, TicketStatus } from "@prisma/client";
 import { isDependencyResolved } from "@/server/tickets/dependencies";
 import {
   AddAssigneeForm,
+  AddAttachmentForm,
   AddDependencyForm,
   CommentForm,
   ContributionForm,
@@ -34,6 +37,7 @@ import {
   ProgressForm,
   RemoveAssigneeButton,
   StatusControl,
+  type StatusOption,
 } from "./ticket-forms";
 
 const badge = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap";
@@ -59,6 +63,8 @@ const DEADLINE_EVENTS: Record<string, string> = {
   DEADLINE_REQUESTED: "Requested deadline change",
   DEADLINE_REJECTED: "Rejected deadline change",
 };
+
+const UPLOAD_ACCEPT = Object.keys(ALLOWED_FILE_TYPES).map((e) => `.${e}`).join(",");
 
 const DEPENDENCY_EVENTS: Record<string, string> = {
   DEPENDENCY_ADDED: "Now waiting on",
@@ -161,9 +167,24 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const canAssign = canEdit && can(user, "ticket.assign", t.resource);
   const canComment = can(user, "ticket.comment", t.resource);
   const canChangeStatus = can(user, "ticket.changeStatus", t.resource);
-  const statusOptions = canChangeStatus
-    ? allowedNextStatuses(user, t.status).map((s) => ({ status: s, needsReason: needsReason(t.status, s) }))
-    : [];
+  const canValidate = can(user, "ticket.validate", t.resource);
+  const policy = await completionPolicy(t.priority);
+  const hasEvidence = t.attachments.some((a) => a.isEvidence);
+  const statusOption = (s: TicketStatus): StatusOption => {
+    const option: StatusOption = { status: s, needsReason: needsReason(t.status, s) };
+    if (t.status === "AWAITING_APPROVAL") {
+      option.label = s === "COMPLETED" ? "Validate (Completed)" : "Reject (back to In progress)";
+    } else if (s === "COMPLETED" && policy.validationRequired && !canValidate) {
+      option.label = "Completed (submit for HOD validation)";
+      option.hint = "The ticket goes to Awaiting approval until the department HOD validates it.";
+    }
+    if (s === "COMPLETED" && policy.evidenceRequired && !hasEvidence) {
+      option.hint = `Evidence is required for ${PRIORITY_LABELS[t.priority]} tickets: add a file or link marked as evidence first.`;
+    }
+    return option;
+  };
+  const statusOptions = canChangeStatus ? allowedNextStatuses(user, t.status, canValidate).map(statusOption) : [];
+  const canAddAttachment = canAttach(user, t.resource) && t.status !== "CANCELLED";
   const canChangeDeadline = can(user, "ticket.changeDeadline", t.resource) && isOpenStatus(t.status);
   const needsApproval = canChangeDeadline && (await deadlineNeedsApproval(user));
   const pendingDeadline = t.deadlineChanges[0];
@@ -239,6 +260,12 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
             </div>
             {canDecide && <DeadlineDecision ticketId={t.id} ticketNo={t.ticketNo} changeId={pendingDeadline.id} />}
           </div>
+        )}
+        {t.status === "AWAITING_APPROVAL" && (
+          <p className={cn("rounded-md p-3 text-sm font-semibold", PENDING_BANNER)}>
+            Completion submitted; waiting for validation by the department HOD
+            {canValidate && ". Review the evidence, then validate or reject it."}
+          </p>
         )}
         {(statusOptions.length > 0 || (canChangeStatus && isOpenStatus(t.status)) || canChangeDeadline) && (
           <div className="flex flex-wrap items-center gap-4">
@@ -408,6 +435,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                         <>
                           {DEPENDENCY_EVENTS[e.type]} {e.toValue ?? e.fromValue}
                         </>
+                      ) : e.type === "ATTACHMENT_ADDED" ? (
+                        <>
+                          Added {e.field === "evidence" ? "evidence" : "attachment"}: {e.toValue}
+                        </>
                       ) : e.type === "COMMENT" ? (
                         "Commented"
                       ) : e.type === "CREATED" ? (
@@ -512,18 +543,38 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
 
           <Card>
             <CardHeader>
-              <SectionHeader title="Attachments" />
+              <SectionHeader title={<>Attachments ({t.attachments.length})</>}>
+                {canAddAttachment && (
+                  <AddAttachmentForm
+                    ticketId={t.id}
+                    ticketNo={t.ticketNo}
+                    accept={UPLOAD_ACCEPT}
+                    evidenceRequired={policy.evidenceRequired}
+                  />
+                )}
+              </SectionHeader>
             </CardHeader>
-            <CardContent className="text-sm">
+            <CardContent className="space-y-2 text-sm">
+              {policy.evidenceRequired && isOpenStatus(t.status) && !hasEvidence && (
+                <p className="text-muted-foreground">Evidence is required before this ticket can be completed.</p>
+              )}
               {t.attachments.length === 0 ? (
                 <p className="text-muted-foreground">None.</p>
               ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {t.attachments.map((a) => (
-                    <li key={a.id}>
-                      {a.name}
-                      {a.isEvidence && <span className="text-muted-foreground"> · evidence</span>}
-                      <span className="text-muted-foreground"> · {a.uploadedBy.name}</span>
+                    <li key={a.id} className="min-w-0">
+                      <a
+                        className="break-all text-content-link underline underline-offset-2"
+                        href={`/api/attachments/${a.id}`}
+                        {...(a.kind === "LINK" ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        {a.name}
+                      </a>
+                      {a.isEvidence && <span className={cn(badge, "ml-1.5 bg-chip-bg text-primary")}>Evidence</span>}
+                      <p className="text-muted-foreground">
+                        {a.kind === "LINK" ? "Link" : "File"} · {a.uploadedBy.name} · {fmtDateTime(a.createdAt)}
+                      </p>
                     </li>
                   ))}
                 </ul>
