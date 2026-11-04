@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { OVERDUE_BADGE, PRIORITY_BADGE, PRIORITY_LABELS, STATUS_BADGE, STATUS_LABELS } from "@/lib/constants";
 import type { TicketSortKey } from "@/lib/schemas/ticket-filters";
 import type { TicketListRow } from "@/server/tickets/query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" });
-const fmtDateTime = (d: Date) =>
-  d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 const badge = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap";
 
 const col = createColumnHelper<TicketListRow>();

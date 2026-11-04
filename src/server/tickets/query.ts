@@ -93,16 +93,20 @@ export async function listTickets(
   const now = opts.now ?? new Date();
   const pageSize = opts.pageSize ?? TICKET_PAGE_SIZE;
   const where = ticketListWhere(user, filters, now);
-  const total = await prisma.ticket.count({ where });
+  const fetchPage = (page: number) =>
+    prisma.ticket.findMany({
+      where,
+      select: listSelect,
+      orderBy: orderBy(filters.sort ?? "updatedAt", filters.dir ?? "desc"),
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+  // Count and rows in parallel; re-fetch only when the requested page is past the end.
+  const requested = Math.max(1, filters.page ?? 1);
+  const [total, firstRows] = await Promise.all([prisma.ticket.count({ where }), fetchPage(requested)]);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(Math.max(1, filters.page ?? 1), pageCount);
-  const rows = await prisma.ticket.findMany({
-    where,
-    select: listSelect,
-    orderBy: orderBy(filters.sort ?? "updatedAt", filters.dir ?? "desc"),
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  });
+  const page = Math.min(requested, pageCount);
+  const rows = page === requested ? firstRows : await fetchPage(page);
   return {
     rows: rows.map((r) => ({ ...r, overdue: isOverdue(r, now) })),
     total,

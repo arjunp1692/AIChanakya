@@ -3,6 +3,7 @@ import { addCommentSchema, createTicketSchema, updateTicketSchema } from "@/lib/
 import { logActivity, recordTicketEvent } from "@/server/audit";
 import { assertCan, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
+import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { nextTicketNo } from "./id";
 
@@ -19,8 +20,8 @@ export class TicketInputError extends Error {
 
 /** Department codes whose new tickets default to confidential (Setting, default `["HR"]`). */
 export async function confidentialDefaultDepts(): Promise<string[]> {
-  const row = await prisma.setting.findUnique({ where: { key: "confidential.defaultDepts" } });
-  return Array.isArray(row?.value) ? row.value.filter((v): v is string => typeof v === "string") : ["HR"];
+  const value = await getSettingValue("confidential.defaultDepts");
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : ["HR"];
 }
 
 /**

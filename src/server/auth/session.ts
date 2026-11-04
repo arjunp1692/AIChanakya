@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 import { can, type Action } from "@/server/authz";
@@ -11,13 +12,13 @@ export type SessionUser = {
   departmentId: string | null;
 };
 
-/** Current user from the session; redirects to /login when signed out. */
-export async function requireUser(): Promise<SessionUser> {
+/** Current user from the session; redirects to /login when signed out. Memoised per request (layout + page). */
+export const requireUser = cache(async (): Promise<SessionUser> => {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const { id, name, email, role, departmentId } = session.user;
   return { id, name, email, role, departmentId };
-}
+});
 
 /** Current user who may perform at least one of `actions`; otherwise redirects to /forbidden. */
 export async function requirePermission(...actions: Action[]): Promise<SessionUser> {

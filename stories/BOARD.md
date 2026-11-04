@@ -19,6 +19,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S11 | Co-assignees and contributions | B | FR-03 | sonnet | S09 | Done (manual check) |
 | S12 | Ticket dependencies | B | FR-03 | sonnet | S09 | Done (manual check) |
 | S13 | Attachments, evidence and completion validation | B | §8 | sonnet | S09 | Done (manual check) |
+| S40 | Performance pass (dev + runtime) | B | §11 | sonnet | S13 | Done (manual check) |
 | S14 | HoD daily report form | C | FR-02 | sonnet | S11, S12 | Todo |
 | S15 | Report submission → ticket updates | C | FR-02 | opus | S14, S10, S13 | Todo |
 | S16 | Carry-forward and reporting compliance | C | FR-02 | sonnet | S15 | Todo |

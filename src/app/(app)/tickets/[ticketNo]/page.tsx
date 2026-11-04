@@ -23,6 +23,7 @@ import { canAttach } from "@/server/tickets/attachments";
 import { ALLOWED_FILE_TYPES } from "@/server/storage";
 import { canDecideDeadline, deadlineNeedsApproval } from "@/server/tickets/deadline";
 import type { ContributionStatus, TicketStatus } from "@prisma/client";
+import { fmtDate, fmtDateTime, isoDateIST } from "@/lib/format";
 import { isDependencyResolved } from "@/server/tickets/dependencies";
 import {
   AddAssigneeForm,
@@ -41,11 +42,6 @@ import {
 } from "./ticket-forms";
 
 const badge = "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap";
-const fmtDate = (d: Date) => d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" });
-/** "YYYY-MM-DD" in IST, for `<input type="date">`. */
-const isoDateIST = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-const fmtDateTime = (d: Date) =>
-  d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 
 const FIELD_LABELS: Record<string, string> = {
   title: "Title",
@@ -168,7 +164,42 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const canComment = can(user, "ticket.comment", t.resource);
   const canChangeStatus = can(user, "ticket.changeStatus", t.resource);
   const canValidate = can(user, "ticket.validate", t.resource);
-  const policy = await completionPolicy(t.priority);
+  const canAddAttachment = canAttach(user, t.resource) && t.status !== "CANCELLED";
+  const canChangeDeadline = can(user, "ticket.changeDeadline", t.resource) && isOpenStatus(t.status);
+  const pendingDeadline = t.deadlineChanges[0];
+  const canDecide = !!pendingDeadline && canDecideDeadline(user, t.resource);
+  const canManageAssignees = can(user, "ticket.assign", t.resource);
+  const myContribution = isOpenStatus(t.status) ? t.assignees.find((a) => a.userId === user.id) : undefined;
+
+  // Owner / co-assignee IDs referenced in history, resolved to names below.
+  const ownerIds = t.events.flatMap((e) =>
+    e.field === "ownerId" || e.field === "assignee" ? [e.fromValue, e.toValue] : [],
+  );
+  const ids = [...new Set(ownerIds.filter((v): v is string => !!v))];
+
+  // Independent lookups run in parallel.
+  const [policy, needsApproval, peopleRows, owners, nameRows] = await Promise.all([
+    completionPolicy(t.priority),
+    canChangeDeadline ? deadlineNeedsApproval(user) : false,
+    canManageAssignees && isOpenStatus(t.status)
+      ? prisma.user.findMany({
+          where: { active: true, id: { notIn: [t.ownerId, ...t.assignees.map((a) => a.userId)] } },
+          select: { id: true, name: true, department: { select: { code: true } } },
+          orderBy: { name: "asc" },
+        })
+      : null,
+    canAssign
+      ? prisma.user.findMany({
+          where: { departmentId: t.departmentId, active: true },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : null,
+    ids.length ? prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [],
+  ]);
+  const people = peopleRows?.map((u) => ({ id: u.id, name: u.name, dept: u.department?.code ?? null })) ?? null;
+  const names = new Map(nameRows.map((u) => [u.id, u.name]));
+
   const hasEvidence = t.attachments.some((a) => a.isEvidence);
   const statusOption = (s: TicketStatus): StatusOption => {
     const option: StatusOption = { status: s, needsReason: needsReason(t.status, s) };
@@ -184,43 +215,6 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
     return option;
   };
   const statusOptions = canChangeStatus ? allowedNextStatuses(user, t.status, canValidate).map(statusOption) : [];
-  const canAddAttachment = canAttach(user, t.resource) && t.status !== "CANCELLED";
-  const canChangeDeadline = can(user, "ticket.changeDeadline", t.resource) && isOpenStatus(t.status);
-  const needsApproval = canChangeDeadline && (await deadlineNeedsApproval(user));
-  const pendingDeadline = t.deadlineChanges[0];
-  const canDecide = !!pendingDeadline && canDecideDeadline(user, t.resource);
-  const canManageAssignees = can(user, "ticket.assign", t.resource);
-  const myContribution = isOpenStatus(t.status) ? t.assignees.find((a) => a.userId === user.id) : undefined;
-
-  const people =
-    canManageAssignees && isOpenStatus(t.status)
-      ? (
-          await prisma.user.findMany({
-            where: { active: true, id: { notIn: [t.ownerId, ...t.assignees.map((a) => a.userId)] } },
-            select: { id: true, name: true, department: { select: { code: true } } },
-            orderBy: { name: "asc" },
-          })
-        ).map((u) => ({ id: u.id, name: u.name, dept: u.department?.code ?? null }))
-      : null;
-
-  const owners = canAssign
-    ? await prisma.user.findMany({
-        where: { departmentId: t.departmentId, active: true },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      })
-    : null;
-
-  // Resolve owner / co-assignee IDs referenced in history to names.
-  const ownerIds = t.events.flatMap((e) =>
-    e.field === "ownerId" || e.field === "assignee" ? [e.fromValue, e.toValue] : [],
-  );
-  const ids = [...new Set(ownerIds.filter((v): v is string => !!v))];
-  const names = new Map(
-    (ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : []).map(
-      (u) => [u.id, u.name],
-    ),
-  );
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import { isOpenStatus } from "@/lib/ticket-utils";
 import { logActivity, recordTicketEvent } from "@/server/audit";
 import { assertCan, can, ForbiddenError, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
+import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
 
@@ -43,8 +44,8 @@ export function allowedNextStatuses(user: AuthzUser, from: TicketStatus, canVali
 const DEFAULT_STRICT_PRIORITIES: Priority[] = ["CRITICAL", "HIGH"];
 
 async function prioritySetting(key: string): Promise<Priority[]> {
-  const row = await prisma.setting.findUnique({ where: { key } });
-  return Array.isArray(row?.value) ? (row.value as Priority[]) : DEFAULT_STRICT_PRIORITIES;
+  const value = await getSettingValue(key);
+  return Array.isArray(value) ? (value as Priority[]) : DEFAULT_STRICT_PRIORITIES;
 }
 
 /**

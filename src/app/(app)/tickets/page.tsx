@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS, TICKET_STATUSES } from "@/lib/constants";
+import { isoDateIST } from "@/lib/format";
 import { navAccess } from "@/lib/nav";
 import { parseTicketFilters } from "@/lib/schemas/ticket-filters";
 import { requirePermission } from "@/server/auth/session";
@@ -17,7 +18,7 @@ const selectClass =
 const labelClass = "text-xs font-semibold text-career-muted";
 
 /** "YYYY-MM-DD" of an instant in IST (for date inputs). */
-const istDay = (d?: Date) => (d ? d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : "");
+const istDay = (d?: Date) => (d ? isoDateIST(d) : "");
 
 /** Query string of all params except the given ones (repeated params kept). */
 function queryWithout(params: SearchParams, drop: string[]): URLSearchParams {

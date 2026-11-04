@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbopack",
+    "preview": "next build && next start",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -18,6 +20,7 @@
     "db:seed": "prisma db seed",
     "worker": "tsx worker/index.ts",
     "smoke": "tsx scripts/smoke.ts",
+    "perf": "tsx scripts/perf.ts",
     "seed:check": "tsx scripts/check-seed.ts",
     "postinstall": "prisma generate"
   },

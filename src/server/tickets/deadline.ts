@@ -4,6 +4,7 @@ import { isOpenStatus } from "@/lib/ticket-utils";
 import { logActivity, recordTicketEvent } from "@/server/audit";
 import { assertCan, can, ForbiddenError, type AuthzUser, type TicketResource } from "@/server/authz";
 import { prisma } from "@/server/db";
+import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
 
@@ -15,8 +16,7 @@ const APPROVER_ROLES: readonly Role[] = ["HOD", "CEO_OFFICE", "CEO"];
 /** Setting `deadline.approval`: "HOD" (default) = members' changes need approval; "NONE" = all auto-approved. */
 export async function deadlineNeedsApproval(user: AuthzUser): Promise<boolean> {
   if (APPROVER_ROLES.includes(user.role)) return false;
-  const row = await prisma.setting.findUnique({ where: { key: "deadline.approval" } });
-  return row?.value !== "NONE";
+  return (await getSettingValue("deadline.approval")) !== "NONE";
 }
 
 /** Whether `user` may approve/reject pending deadline changes on this ticket. */
