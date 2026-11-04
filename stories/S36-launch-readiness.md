@@ -21,6 +21,9 @@ Prove each PRD §16 launch condition with evidence, and fix only small gaps (ope
 - `docs/USER-GUIDE.md`: one short section per role (HoD: daily report; Member/co-assignee: updates and evidence; CEO: dashboard, decisions, escalations, AI review; CEO Office: admin, settings, compliance).
 - `docs/PILOT.md`: pilot plan per PRD §13 Phase 4 (2–3 pilot departments, duration, training session agenda, feedback log, go/no-go criteria = this checklist + §14 targets, rollout order for the remaining departments).
 
+## Deferred to after the whole app is done
+- Duplicate lookup performance (S17 notes): not part of this story's scope, but raise it here so it isn't lost. `findSimilarTickets` in `src/server/tickets/similar.ts` doesn't use the trigram index; switch to the `%` operator, add a partial GIN index on open tickets (migration), verify with `EXPLAIN ANALYZE`.
+
 ## Acceptance criteria
 1. `pnpm launch-check` prints 10/10 PASS (or lists failures with new follow-up stories in BOARD).
 2. Checklist, user guide and pilot plan docs committed.
