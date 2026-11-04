@@ -65,6 +65,8 @@ export type TicketEventInput = {
   from?: unknown;
   to?: unknown;
   reason?: string;
+  /** Daily report the change came from. */
+  reportId?: string;
 };
 
 function str(v: unknown): string | null {
@@ -84,6 +86,7 @@ export async function recordTicketEvent(tx: Tx, input: TicketEventInput) {
       fromValue: str(input.from),
       toValue: str(input.to),
       reason: input.reason ?? null,
+      reportId: input.reportId ?? null,
     },
   });
 }

@@ -30,4 +30,9 @@ The daily report is the input into the ticket database, not a separate document.
 - tsx script submitting as hod.edt@ (via service) and asserting criteria 1–6 against DB; GET a snapshot containing an HR confidential row as viewer@ and grep for "Confidential item".
 
 ## Implementation notes
-_(implementer fills, ≤6 lines)_
+- `src/server/reports/submit.ts` `submitDailyReport(user, input, files?)`; `view.ts` (`listDailyReports`, `getReportSnapshot`: the only reader of `payload` for display, redacts server-side, fails closed). Routes `/reports/daily`, `/[id]`, `/[id]/submitted`; `/reports` redirects there. Action: `report/actions.ts`.
+- Ticket services take optional `opts: ServiceOpts` (`tickets/tx.ts`: `tx`, `reportId`, `storedKeys`); reads inside must use `dbOf(opts)`. Schema: `TicketEvent.reportId`, `DailyReport.idempotencyKey` (unique per submitter), `DailyReportItem.rowKey/created`.
+- Resubmission matches rows by `rowKey` and applies only differences; a new row never recreates its ticket (title/owner edits are ignored, only note + attachments apply). Form's "Load submitted report" keeps keys. Decisions dedupe by question. Removing a row reverses nothing.
+- Status changes only via a row's explicit `status`, not its section. Attachments on COMPLETED rows count as evidence. `decisionRequests[].ticketNo` added. Blank decision deadline = report date + 3 days. Report files capped at 50 MB (`bodySizeLimit` 55mb). Any row error rolls back the whole report (`items.<i>.<field>`).
+- Check: `pnpm exec tsx .harness/tmp/s15-check.ts` (BASE_URL :3100, creates fixture tickets). After pulling: run `pnpm exec prisma generate` with dev stopped, then restart dev.
+- Follow-ups: `blockersText`/`nextDayPriorities` aren't redacted, so free text in a confidential dept's report is visible to viewers; S19 should notify on new decisions; S22 should parse `options` (stored as one label).

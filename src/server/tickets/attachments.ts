@@ -6,6 +6,7 @@ import { prisma } from "@/server/db";
 import { contentTypeFor, storage, uploadProblem } from "@/server/storage";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
+import { dbOf, inTx, type ServiceOpts } from "./tx";
 
 /** Owner/HOD (`ticket.changeStatus`) and co-assignees (`ticket.contribute`) may attach files and links. */
 export const canAttach = (user: AuthzUser, resource: TicketResource) =>
@@ -18,9 +19,9 @@ const pick = (a: Attachment) => ({ ticketId: a.ticketId, kind: a.kind, name: a.n
  * Needs `canAttach`. ATTACHMENT_ADDED event + ActivityLog CREATE in one transaction; the stored
  * file is removed again if the transaction fails.
  */
-export async function addAttachment(user: AuthzUser, ticketId: string, input: unknown) {
+export async function addAttachment(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = addAttachmentSchema.parse(input);
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   if (!canAttach(user, toTicketResource(ticket))) throw new ForbiddenError("ticket.edit");
   if (ticket.status === "CANCELLED") throw new TicketInputError("file", "A cancelled ticket can't take attachments");
@@ -32,13 +33,14 @@ export async function addAttachment(user: AuthzUser, ticketId: string, input: un
     const problem = uploadProblem(file.name, file.type, file.size);
     if (problem) throw new TicketInputError("file", problem);
     key = await storage.put(ticket.id, file.name, new Uint8Array(await file.arrayBuffer()));
+    opts.storedKeys?.push(key);
     name = data.name ?? file.name;
   } else {
     name = data.name ?? data.url!;
   }
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await inTx(opts, async (tx) => {
       const row = await tx.attachment.create({
         data: {
           ticketId: ticket.id,
@@ -47,6 +49,7 @@ export async function addAttachment(user: AuthzUser, ticketId: string, input: un
           name,
           isEvidence: data.isEvidence,
           uploadedById: user.id,
+          reportId: opts.reportId,
         },
       });
       await recordTicketEvent(tx, {
@@ -55,6 +58,7 @@ export async function addAttachment(user: AuthzUser, ticketId: string, input: un
         type: "ATTACHMENT_ADDED",
         field: row.isEvidence ? "evidence" : "attachment",
         to: row.name,
+        reportId: opts.reportId,
       });
       await logActivity(tx, { actor: user.id, entity: "Attachment", entityId: row.id, action: "CREATE", after: pick(row) });
       return row;

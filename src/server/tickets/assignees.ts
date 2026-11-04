@@ -6,9 +6,10 @@ import { assertCan, ForbiddenError, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
+import { dbOf, inTx, type ServiceOpts } from "./tx";
 
-async function loadTicket(ticketId: string) {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+async function loadTicket(ticketId: string, opts: ServiceOpts = {}) {
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   return { ticket, resource: toTicketResource(ticket) };
 }
@@ -25,9 +26,9 @@ const pick = (a: TicketAssignee) => ({
  * Adds a co-assignee from any department. Needs `ticket.assign`; the owner can never be a
  * co-assignee (exactly one owner). ASSIGNEE_ADDED event + ActivityLog CREATE in one transaction.
  */
-export async function addAssignee(user: AuthzUser, ticketId: string, input: unknown) {
+export async function addAssignee(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = addAssigneeSchema.parse(input);
-  const { ticket, resource } = await loadTicket(ticketId);
+  const { ticket, resource } = await loadTicket(ticketId, opts);
   assertCan(user, "ticket.assign", resource);
   if (!isOpenStatus(ticket.status)) throw new TicketInputError("userId", "Co-assignees can only be added to an open ticket");
   if (data.userId === ticket.ownerId) {
@@ -39,7 +40,7 @@ export async function addAssignee(user: AuthzUser, ticketId: string, input: unkn
   const person = await prisma.user.findFirst({ where: { id: data.userId, active: true } });
   if (!person) throw new TicketInputError("userId", "Choose an active user");
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     const row = await tx.ticketAssignee.create({
       data: { ticketId: ticket.id, userId: person.id, responsibility: data.responsibility },
     });
@@ -50,6 +51,7 @@ export async function addAssignee(user: AuthzUser, ticketId: string, input: unkn
       field: "assignee",
       to: person.id,
       reason: data.responsibility,
+      reportId: opts.reportId,
     });
     await logActivity(tx, { actor: user.id, entity: "TicketAssignee", entityId: row.id, action: "CREATE", after: pick(row) });
     return row;

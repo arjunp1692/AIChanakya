@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -169,6 +170,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
   const pendingDeadline = t.deadlineChanges[0];
   const canDecide = !!pendingDeadline && canDecideDeadline(user, t.resource);
   const canManageAssignees = can(user, "ticket.assign", t.resource);
+  const canViewReports = can(user, "report.view", { departmentId: t.departmentId });
   const myContribution = isOpenStatus(t.status) ? t.assignees.find((a) => a.userId === user.id) : undefined;
 
   // Owner / co-assignee IDs referenced in history, resolved to names below.
@@ -450,6 +452,18 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                       <p className="text-muted-foreground">
                         {e.type === "CONTRIBUTION" ? "Note" : e.type === "ASSIGNEE_ADDED" ? "Responsibility" : "Reason"}:{" "}
                         {e.reason}
+                      </p>
+                    )}
+                    {e.reportId && (
+                      <p className="text-muted-foreground">
+                        Source:{" "}
+                        {canViewReports ? (
+                          <Link href={`/reports/daily/${e.reportId}`} className="text-primary hover:underline">
+                            Daily report
+                          </Link>
+                        ) : (
+                          "Daily report"
+                        )}
                       </p>
                     )}
                   </li>

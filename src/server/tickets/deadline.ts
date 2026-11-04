@@ -1,4 +1,4 @@
-import type { DeadlineChange, Prisma, Role, Ticket } from "@prisma/client";
+import type { DeadlineChange, Role, Ticket } from "@prisma/client";
 import { changeDeadlineSchema, decideDeadlineSchema } from "@/lib/schemas/ticket";
 import { isOpenStatus } from "@/lib/ticket-utils";
 import { logActivity, recordTicketEvent } from "@/server/audit";
@@ -7,8 +7,7 @@ import { prisma } from "@/server/db";
 import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
-
-type Tx = Prisma.TransactionClient;
+import { dbOf, inTx, type ServiceOpts, type Tx } from "./tx";
 
 /** Roles whose deadline changes apply at once and who decide pending requests (own dept for HOD). */
 const APPROVER_ROLES: readonly Role[] = ["HOD", "CEO_OFFICE", "CEO"];
@@ -24,8 +23,8 @@ export function canDecideDeadline(user: AuthzUser, resource: TicketResource): bo
   return APPROVER_ROLES.includes(user.role) && can(user, "ticket.changeDeadline", resource);
 }
 
-async function loadTicket(user: AuthzUser, ticketId: string) {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+async function loadTicket(user: AuthzUser, ticketId: string, opts: ServiceOpts = {}) {
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   const resource = toTicketResource(ticket);
   assertCan(user, "ticket.changeDeadline", resource);
@@ -36,7 +35,7 @@ async function loadTicket(user: AuthzUser, ticketId: string) {
  * Moves `dueDate` to the change's target inside `tx`. `originalDueDate` is only filled when the
  * ticket had none (first deadline); it is never overwritten. `extensionCount++` when moved later.
  */
-async function applyChange(tx: Tx, actorId: string, ticket: Ticket, change: DeadlineChange) {
+async function applyChange(tx: Tx, actorId: string, ticket: Ticket, change: DeadlineChange, reportId?: string) {
   const later = !!change.from && change.to.getTime() > change.from.getTime();
   // Guard against a concurrent change: only apply if the due date is still the request's `from`.
   const { count } = await tx.ticket.updateMany({
@@ -59,6 +58,7 @@ async function applyChange(tx: Tx, actorId: string, ticket: Ticket, change: Dead
     from: change.from,
     to: change.to,
     reason: change.reason,
+    reportId,
   });
   const pick = (t: Ticket) => ({
     dueDate: t.dueDate,
@@ -82,9 +82,9 @@ async function applyChange(tx: Tx, actorId: string, ticket: Ticket, change: Dead
  * (approver = self) and applied at once; members' changes stay PENDING until an approver decides
  * (Setting `deadline.approval`). Writes DeadlineChange + TicketEvent + ActivityLog in one transaction.
  */
-export async function changeDeadline(user: AuthzUser, ticketId: string, input: unknown) {
+export async function changeDeadline(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = changeDeadlineSchema.parse(input);
-  const { ticket } = await loadTicket(user, ticketId);
+  const { ticket } = await loadTicket(user, ticketId, opts);
   if (!isOpenStatus(ticket.status)) {
     throw new TicketInputError("dueDate", "The deadline can only change on an open ticket");
   }
@@ -97,7 +97,7 @@ export async function changeDeadline(user: AuthzUser, ticketId: string, input: u
   const pending = await deadlineNeedsApproval(user);
   const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     if (await tx.deadlineChange.count({ where: { ticketId: ticket.id, status: "PENDING" } })) {
       throw new TicketInputError("dueDate", "A deadline change is already waiting for approval");
     }
@@ -129,10 +129,11 @@ export async function changeDeadline(user: AuthzUser, ticketId: string, input: u
         from: change.from,
         to: change.to,
         reason: change.reason,
+        reportId: opts.reportId,
       });
       return change;
     }
-    await applyChange(tx, user.id, ticket, change);
+    await applyChange(tx, user.id, ticket, change, opts.reportId);
     return change;
   });
 }

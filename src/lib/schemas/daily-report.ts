@@ -20,6 +20,9 @@ export const REPORT_PRIORITIES = ["NORMAL", "HIGH", "CRITICAL"] as const;
 /** Mirrors `MAX_UPLOAD_BYTES` in `src/server/storage` (server-only module); S15 re-checks there. */
 export const REPORT_MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+/** All files of one report; must stay under `serverActions.bodySizeLimit` in next.config.ts. */
+export const REPORT_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date");
 const optText = (max: number) => z.string().trim().max(max).default("");
 
@@ -89,6 +92,8 @@ export const decisionRequestSchema = z.object({
   options: optText(2000),
   recommendation: optText(2000),
   deadline: z.union([isoDay, z.literal("")]).default(""),
+  /** Ticket the decision is about; blank = none. */
+  ticketNo: z.string().trim().max(60).default(""),
 });
 
 export const dailyReportSchema = z.object({
@@ -102,6 +107,11 @@ export const dailyReportSchema = z.object({
   nextDayPriorities: optText(5000),
   highestPriority: z.enum(REPORT_PRIORITIES).default("NORMAL"),
   decisionRequests: z.array(decisionRequestSchema).max(20).default([]),
+});
+
+/** What the client submits: the report plus a key that makes a repeated submit a no-op. */
+export const submitReportSchema = dailyReportSchema.extend({
+  idempotencyKey: z.string().min(8).max(100),
 });
 
 export type DailyReportInput = z.input<typeof dailyReportSchema>;

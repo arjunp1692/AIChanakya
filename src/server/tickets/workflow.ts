@@ -3,10 +3,10 @@ import { changeStatusSchema, updateProgressSchema } from "@/lib/schemas/ticket";
 import { isOpenStatus } from "@/lib/ticket-utils";
 import { logActivity, recordTicketEvent } from "@/server/audit";
 import { assertCan, can, ForbiddenError, type AuthzUser } from "@/server/authz";
-import { prisma } from "@/server/db";
 import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
+import { dbOf, inTx, type ServiceOpts } from "./tx";
 
 /** The ticket lifecycle (PRD §9). Overdue is not a status; see `isOverdue`. */
 export const TRANSITIONS: Record<TicketStatus, readonly TicketStatus[]> = {
@@ -78,9 +78,9 @@ async function assertEvidence(tx: Prisma.TransactionClient, ticket: Ticket) {
  * Writes the status change, a STATUS_CHANGED (or REOPENED) event with the reason, and an
  * ActivityLog UPDATE in one transaction. Throws ZodError, TicketInputError or ForbiddenError.
  */
-export async function changeStatus(user: AuthzUser, ticketId: string, input: unknown) {
+export async function changeStatus(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = changeStatusSchema.parse(input);
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   const resource = toTicketResource(ticket);
   assertCan(user, "ticket.changeStatus", resource);
@@ -123,7 +123,7 @@ export async function changeStatus(user: AuthzUser, ticketId: string, input: unk
     Object.assign(changes, { completedAt: null, validatedById: null, validatedAt: null, reopenCount: { increment: 1 } });
   }
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     if ((to === "COMPLETED" || submit) && policy.evidenceRequired) await assertEvidence(tx, ticket);
     // Guard against a concurrent change: only update if the status is still `from`.
     const { count } = await tx.ticket.updateMany({ where: { id: ticket.id, status: from }, data: changes });
@@ -138,6 +138,7 @@ export async function changeStatus(user: AuthzUser, ticketId: string, input: unk
       from,
       to,
       reason: data.reason ?? (submit ? "Submitted for completion validation" : undefined),
+      reportId: opts.reportId,
     });
     if (reopen) {
       await recordTicketEvent(tx, {
@@ -147,6 +148,7 @@ export async function changeStatus(user: AuthzUser, ticketId: string, input: unk
         field: "completedAt",
         from: ticket.completedAt,
         to: null,
+        reportId: opts.reportId,
       });
     }
     const pick = (t: Ticket) => ({
@@ -171,9 +173,9 @@ export async function changeStatus(user: AuthzUser, ticketId: string, input: unk
 }
 
 /** Sets progress (0–100) on an open ticket. Needs `ticket.changeStatus`; PROGRESS event + ActivityLog. */
-export async function updateProgress(user: AuthzUser, ticketId: string, input: unknown) {
+export async function updateProgress(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = updateProgressSchema.parse(input);
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   assertCan(user, "ticket.changeStatus", toTicketResource(ticket));
   if (!isOpenStatus(ticket.status)) {
@@ -181,7 +183,7 @@ export async function updateProgress(user: AuthzUser, ticketId: string, input: u
   }
   if (data.progress === ticket.progress) return ticket;
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     const updated = await tx.ticket.update({ where: { id: ticket.id }, data: { progress: data.progress } });
     await recordTicketEvent(tx, {
       ticketId: ticket.id,
@@ -190,6 +192,7 @@ export async function updateProgress(user: AuthzUser, ticketId: string, input: u
       field: "progress",
       from: ticket.progress,
       to: updated.progress,
+      reportId: opts.reportId,
     });
     await logActivity(tx, {
       actor: user.id,

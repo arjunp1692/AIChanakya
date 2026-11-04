@@ -1,6 +1,10 @@
 import { prisma } from "@/server/db";
 import { assertCan, ticketVisibilityWhere, type AuthzUser } from "@/server/authz";
 import { CLOSED_STATUSES } from "@/lib/constants";
+import type { DailyReport } from "@/lib/schemas/daily-report";
+
+/** Recent days offered for resubmission (the form's date picker can go back further, as a fresh report). */
+const RESUBMIT_DAYS = 14;
 
 /**
  * Data for the daily report form. HODs report for their own department; CEO/CEO_OFFICE may
@@ -19,7 +23,7 @@ export async function getReportFormData(user: AuthzUser, deptCode?: string) {
 
   const select = { ticketNo: true, title: true, status: true, progress: true, dueDate: true } as const;
   const open = { AND: [ticketVisibilityWhere(user), { status: { notIn: [...CLOSED_STATUSES] } }] };
-  const [deptTickets, otherTickets, users] = await Promise.all([
+  const [deptTickets, otherTickets, users, reports] = await Promise.all([
     // Own-dept tickets can be linked; any visible open ticket can be a dependency of a new row.
     prisma.ticket.findMany({
       where: { ...open, departmentId: department.id },
@@ -37,6 +41,12 @@ export async function getReportFormData(user: AuthzUser, deptCode?: string) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, departmentId: true, department: { select: { code: true } } },
     }),
+    prisma.dailyReport.findMany({
+      where: { departmentId: department.id, isLatest: true },
+      orderBy: { reportDate: "desc" },
+      take: RESUBMIT_DAYS,
+      select: { reportDate: true, revision: true, payload: true },
+    }),
   ]);
 
   return {
@@ -46,6 +56,13 @@ export async function getReportFormData(user: AuthzUser, deptCode?: string) {
       ...deptTickets.map((t) => ({ ...t, ownDept: true })),
       ...otherTickets.map((t) => ({ ...t, ownDept: false })),
     ].map((t) => ({ ...t, dueDate: t.dueDate?.toISOString() ?? null })),
+    /** Latest revision per day. Rows keep their keys, so a resubmission only applies what changed. */
+    submitted: reports.flatMap((r) => {
+      const payload = r.payload as unknown as DailyReport;
+      // Seeded reports predate row keys and can't be edited in the form.
+      if (!payload.items?.every((row) => row.key)) return [];
+      return [{ reportDate: r.reportDate.toISOString().slice(0, 10), revision: r.revision, payload }];
+    }),
     users: users.map((u) => ({
       id: u.id,
       name: u.name,

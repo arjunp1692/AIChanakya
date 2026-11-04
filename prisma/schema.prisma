@@ -255,10 +255,13 @@ model TicketEvent {
   fromValue String?
   toValue   String?
   reason    String?
+  /// Source of the change when it came from a daily report.
+  reportId  String?
   at        DateTime @default(now())
 
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  actor  User?  @relation(fields: [actorId], references: [id])
+  ticket Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?        @relation(fields: [actorId], references: [id])
+  report DailyReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   @@index([ticketId, at])
 }
@@ -343,13 +346,17 @@ model DailyReport {
   nextDayPriorities String         @default("")
   /// Seconds spent filling the form (proxy for manual reporting effort, PRD §14).
   fillSeconds       Int?
+  /// Client key per submit attempt; a repeat returns the stored report.
+  idempotencyKey    String?
 
   department  Department        @relation(fields: [departmentId], references: [id])
   submittedBy User              @relation(fields: [submittedById], references: [id])
   items       DailyReportItem[]
   attachments Attachment[]
+  events      TicketEvent[]
 
   @@unique([departmentId, reportDate, revision])
+  @@unique([submittedById, idempotencyKey])
   @@index([reportDate])
 }
 
@@ -357,6 +364,10 @@ model DailyReportItem {
   id       String        @id @default(cuid())
   reportId String
   ticketId String
+  /// Client row key from the payload; matches rows across revisions.
+  rowKey   String        @default("")
+  /// True when this row created the ticket.
+  created  Boolean       @default(false)
   section  ReportSection
   note     String        @default("")
   progress Int?

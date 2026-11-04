@@ -10,6 +10,7 @@ import { PRIORITIES, PRIORITY_LABELS, REPORT_PRIORITY_LABELS, STATUS_LABELS, TIC
 import { fmtDate } from "@/lib/format";
 import {
   REPORT_MAX_FILE_BYTES,
+  REPORT_MAX_TOTAL_BYTES,
   REPORT_PRIORITIES,
   REPORT_SECTIONS,
   REPORT_SECTION_LABELS,
@@ -21,6 +22,7 @@ import {
   type newRowSchema,
 } from "@/lib/schemas/daily-report";
 import type { ReportFormData } from "@/server/reports/form";
+import { submitReportAction } from "./actions";
 
 type Props = ReportFormData & { submitterName: string; today: string };
 type LinkRow = z.input<typeof linkedRowSchema>;
@@ -146,13 +148,19 @@ function ReportEditor({
   department,
   tickets,
   users,
+  submitted,
 }: Props & { storageKey: string; reportDate: string }) {
+  const router = useRouter();
   const [initial] = useState(() => readDraft(storageKey));
   const [draft, setDraft] = useState<Draft>(initial.draft);
   const [errors, setErrors] = useState<Errors>({});
   const [summary, setSummary] = useState<string[]>([]);
   const [preview, setPreview] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const files = useRef(new Map<string, File>());
+  // One key per version of the report: a double click or retry repeats it, an edit replaces it.
+  const idempotencyKey = useRef(uid());
+  const existing = submitted.find((r) => r.reportDate === reportDate);
 
   useEffect(() => {
     if (draft.startedAt) localStorage.setItem(storageKey, JSON.stringify(draft));
@@ -162,6 +170,7 @@ function ReportEditor({
   const owners = users.filter((u) => u.departmentId === department.id);
 
   function edit(fn: (d: Draft) => Draft) {
+    idempotencyKey.current = uid();
     setPreview(false);
     setDraft((d) => ({ ...fn(d), startedAt: d.startedAt ?? new Date().toISOString() }));
   }
@@ -206,6 +215,53 @@ function ReportEditor({
     return issues.length === 0;
   }
 
+  function loadSubmitted() {
+    if (!existing) return;
+    const { items, blockersText, nextDayPriorities, highestPriority, decisionRequests } = existing.payload;
+    edit(() => ({ items, blockersText, nextDayPriorities, highestPriority, decisionRequests }));
+    setErrors({});
+    setSummary([]);
+  }
+
+  async function submit() {
+    if (submitting || !validate()) return;
+    const body = new FormData();
+    body.set(
+      "payload",
+      JSON.stringify({ departmentId: department.id, reportDate, ...draft, idempotencyKey: idempotencyKey.current }),
+    );
+    let total = 0;
+    for (const a of draft.items.flatMap((row) => row.attachments ?? [])) {
+      const file = a.kind === "FILE" ? files.current.get(a.fileKey) : undefined;
+      if (a.kind === "FILE" && file) {
+        body.append(`file:${a.fileKey}`, file);
+        total += file.size;
+      }
+    }
+    if (total > REPORT_MAX_TOTAL_BYTES) {
+      setSummary(["Attached files can be at most 50 MB per report."]);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await submitReportAction(body);
+      if ("id" in result) {
+        localStorage.removeItem(storageKey);
+        files.current.clear();
+        router.push(`/reports/daily/${result.id}/submitted`);
+        return;
+      }
+      const fieldErrors = Object.entries(result.fieldErrors ?? {});
+      setErrors(Object.fromEntries(fieldErrors.map(([path, messages]) => [path, messages[0]])));
+      setSummary(fieldErrors.length ? fieldErrors.map(([, messages]) => messages[0]) : [result.error]);
+      setPreview(false);
+    } catch {
+      setSummary(["The report could not be submitted. Check your connection and try again."]);
+    }
+    setSubmitting(false);
+  }
+
   function discard() {
     localStorage.removeItem(storageKey);
     files.current.clear();
@@ -217,6 +273,14 @@ function ReportEditor({
 
   return (
     <div className="space-y-4">
+      {existing && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-divider bg-surface p-3 text-sm">
+          <p>Revision {existing.revision} was already submitted for this date. Submitting again creates a new revision.</p>
+          <Button type="button" size="sm" variant="outline" onClick={loadSubmitted}>
+            Load submitted report
+          </Button>
+        </div>
+      )}
       <datalist id="report-dept-tickets">
         {deptTickets.map((t) => (
           <option key={t.ticketNo} value={t.ticketNo} label={t.title} />
@@ -346,7 +410,9 @@ function ReportEditor({
         </Button>
       </div>
 
-      {preview && <ReportPreview draft={draft} tickets={tickets} users={users} />}
+      {preview && (
+        <ReportPreview draft={draft} tickets={tickets} users={users} submitting={submitting} onSubmit={submit} />
+      )}
     </div>
   );
 }
@@ -647,7 +713,7 @@ function DecisionRequests({
           size="sm"
           variant="outline"
           onClick={() =>
-            onChange([...requests, { question: "", impact: "", options: "", recommendation: "", deadline: "" }])
+            onChange([...requests, { question: "", impact: "", options: "", recommendation: "", deadline: "", ticketNo: "" }])
           }
         >
           + Decision request
@@ -675,6 +741,13 @@ function DecisionRequests({
             <Field label="Decision needed by" error={errors[`decisionRequests.${i}.deadline`]}>
               <Input type="date" value={r.deadline ?? ""} onChange={(e) => set(i, { deadline: e.target.value })} />
             </Field>
+            <Field label="Related ticket (optional)" error={errors[`decisionRequests.${i}.ticketNo`]}>
+              <Input
+                list="report-dept-tickets"
+                value={r.ticketNo ?? ""}
+                onChange={(e) => set(i, { ticketNo: e.target.value.trim() })}
+              />
+            </Field>
           </div>
           <Button type="button" size="sm" variant="ghost" onClick={() => onChange(requests.filter((_, j) => j !== i))}>
             Remove request
@@ -685,7 +758,19 @@ function DecisionRequests({
   );
 }
 
-function ReportPreview({ draft, tickets, users }: { draft: Draft; tickets: Props["tickets"]; users: Props["users"] }) {
+function ReportPreview({
+  draft,
+  tickets,
+  users,
+  submitting,
+  onSubmit,
+}: {
+  draft: Draft;
+  tickets: Props["tickets"];
+  users: Props["users"];
+  submitting: boolean;
+  onSubmit: () => void;
+}) {
   const titleOf = (no: string) => tickets.find((t) => t.ticketNo === no)?.title ?? "";
   const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? "";
   return (
@@ -731,8 +816,8 @@ function ReportPreview({ draft, tickets, users }: { draft: Draft; tickets: Props
           <span className="font-medium">Decision requests:</span> {draft.decisionRequests.length}
         </p>
       )}
-      <Button type="button" disabled title="Submitting is not available yet">
-        Submit report
+      <Button type="button" disabled={submitting} onClick={onSubmit}>
+        {submitting ? "Submitting…" : "Submit report"}
       </Button>
     </section>
   );

@@ -6,6 +6,7 @@ import { prisma } from "@/server/db";
 import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { nextTicketNo } from "./id";
+import { dbOf, inTx, type ServiceOpts } from "./tx";
 
 /** Input that passed the schema but fails a data rule (unknown department, owner outside it). */
 export class TicketInputError extends Error {
@@ -29,7 +30,7 @@ export async function confidentialDefaultDepts(): Promise<string[]> {
  * `originalDueDate` set once, CREATED event and activity log in the same transaction.
  * Throws ZodError, TicketInputError or ForbiddenError.
  */
-export async function createTicket(user: AuthzUser, input: unknown) {
+export async function createTicket(user: AuthzUser, input: unknown, opts: ServiceOpts = {}) {
   const data = createTicketSchema.parse(input);
 
   const dept = await prisma.department.findFirst({ where: { id: data.departmentId, active: true } });
@@ -43,7 +44,7 @@ export async function createTicket(user: AuthzUser, input: unknown) {
   });
   if (!owner) throw new TicketInputError("ownerId", "Owner must be an active member of the department");
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     const ticketNo = await nextTicketNo(tx, dept.code);
     const created: Prisma.TicketUncheckedCreateInput = {
       ticketNo,
@@ -61,7 +62,7 @@ export async function createTicket(user: AuthzUser, input: unknown) {
     };
     const ticket = await tx.ticket.create({ data: created });
 
-    await recordTicketEvent(tx, { ticketId: ticket.id, actor: user.id, type: "CREATED", to: ticket.status });
+    await recordTicketEvent(tx, { ticketId: ticket.id, actor: user.id, type: "CREATED", to: ticket.status, reportId: opts.reportId });
     await logActivity(tx, {
       actor: user.id,
       entity: "Ticket",
@@ -131,15 +132,15 @@ export async function updateTicket(user: AuthzUser, ticketId: string, input: unk
 }
 
 /** Adds a comment (`ticket.comment`): Comment + COMMENT event + ActivityLog in one transaction. */
-export async function addComment(user: AuthzUser, ticketId: string, input: unknown) {
+export async function addComment(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = addCommentSchema.parse(input);
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   assertCan(user, "ticket.comment", toTicketResource(ticket));
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     const comment = await tx.comment.create({ data: { ticketId, authorId: user.id, body: data.body } });
-    await recordTicketEvent(tx, { ticketId, actor: user.id, type: "COMMENT", to: comment.id });
+    await recordTicketEvent(tx, { ticketId, actor: user.id, type: "COMMENT", to: comment.id, reportId: opts.reportId });
     await logActivity(tx, {
       actor: user.id,
       entity: "Comment",

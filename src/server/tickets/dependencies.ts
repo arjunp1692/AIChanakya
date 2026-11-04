@@ -7,8 +7,7 @@ import { assertCan, can, ticketVisibilityWhere, type AuthzUser } from "@/server/
 import { prisma } from "@/server/db";
 import { resourceInclude, toTicketResource } from "./detail";
 import { TicketInputError } from "./service";
-
-type Tx = Prisma.TransactionClient;
+import { dbOf, inTx, type ServiceOpts, type Tx } from "./tx";
 
 /** A dependency is resolved when its external prerequisite is marked so, or its linked ticket is closed. */
 export function isDependencyResolved(d: { resolved: boolean; dependsOnTicket?: { status: TicketStatus } | null }) {
@@ -23,8 +22,8 @@ export const unresolvedDependencyWhere = {
   ],
 } satisfies Prisma.TicketDependencyWhereInput;
 
-async function loadTicket(ticketId: string) {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
+async function loadTicket(ticketId: string, opts: ServiceOpts = {}) {
+  const ticket = await dbOf(opts).ticket.findUnique({ where: { id: ticketId }, include: resourceInclude });
   if (!ticket) throw new TicketInputError("ticketId", "Unknown ticket");
   return { ticket, resource: toTicketResource(ticket) };
 }
@@ -67,16 +66,16 @@ async function reaches(tx: Tx, fromId: string, toId: string): Promise<boolean> {
  * Rejects self-dependency, duplicates and cycles. DEPENDENCY_ADDED (+ DEPENDENT_ADDED on the target)
  * and ActivityLog CREATE in one transaction.
  */
-export async function addDependency(user: AuthzUser, ticketId: string, input: unknown) {
+export async function addDependency(user: AuthzUser, ticketId: string, input: unknown, opts: ServiceOpts = {}) {
   const data = addDependencySchema.parse(input);
-  const { ticket, resource } = await loadTicket(ticketId);
+  const { ticket, resource } = await loadTicket(ticketId, opts);
   assertCan(user, "ticket.edit", resource);
   if (!isOpenStatus(ticket.status)) {
     throw new TicketInputError(data.kind === "ticket" ? "dependsOn" : "externalPrerequisite", "Dependencies can only be added to an open ticket");
   }
 
   if (data.kind === "external") {
-    return prisma.$transaction(async (tx) => {
+    return inTx(opts, async (tx) => {
       const row = await tx.ticketDependency.create({
         data: { ticketId: ticket.id, externalPrerequisite: data.externalPrerequisite! },
       });
@@ -86,6 +85,7 @@ export async function addDependency(user: AuthzUser, ticketId: string, input: un
         type: "DEPENDENCY_ADDED",
         field: "dependency",
         to: row.externalPrerequisite,
+        reportId: opts.reportId,
       });
       await logActivity(tx, { actor: user.id, entity: "TicketDependency", entityId: row.id, action: "CREATE", after: pick(row) });
       return row;
@@ -99,7 +99,7 @@ export async function addDependency(user: AuthzUser, ticketId: string, input: un
   }
   if (target.id === ticket.id) throw new TicketInputError("dependsOn", "A ticket cannot depend on itself");
 
-  return prisma.$transaction(async (tx) => {
+  return inTx(opts, async (tx) => {
     const existing = await tx.ticketDependency.findFirst({ where: { ticketId: ticket.id, dependsOnTicketId: target.id } });
     if (existing) throw new TicketInputError("dependsOn", `Already waiting on ${target.ticketNo}`);
     if (await reaches(tx, target.id, ticket.id)) {
@@ -112,6 +112,7 @@ export async function addDependency(user: AuthzUser, ticketId: string, input: un
       type: "DEPENDENCY_ADDED",
       field: "dependency",
       to: target.ticketNo,
+      reportId: opts.reportId,
     });
     await recordTicketEvent(tx, {
       ticketId: target.id,
