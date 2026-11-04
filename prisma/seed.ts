@@ -137,6 +137,8 @@ const OPEN: TicketStatus[] = ["NEW", "ASSIGNED", "IN_PROGRESS", "BLOCKED", "AWAI
 
 const SETTINGS: Record<string, Prisma.InputJsonValue> = {
   "report.cutoff": { time: "19:00", timezone: "Asia/Kolkata" },
+  // ISO weekdays (1 = Monday) a daily report is expected on.
+  "report.workingDays": [1, 2, 3, 4, 5, 6],
   "reminders.deadlineApproachingHours": [48, 24],
   "reminders.reportBeforeCutoffMinutes": [60, 15],
   "escalation.repeatedDelayExtensions": 2,

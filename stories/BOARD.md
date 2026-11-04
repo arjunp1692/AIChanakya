@@ -22,7 +22,7 @@ Pick next: `/story-next`. One story per session, then `/clear`.
 | S40 | Performance pass (dev + runtime) | B | §11 | sonnet | S13 | Done (manual check) |
 | S14 | HoD daily report form | C | FR-02 | sonnet | S11, S12 | Done (manual check) |
 | S15 | Report submission → ticket updates | C | FR-02 | opus | S14, S10, S13 | Done (manual check) |
-| S16 | Carry-forward and reporting compliance | C | FR-02 | sonnet | S15 | Todo |
+| S16 | Carry-forward and reporting compliance | C | FR-02 | sonnet | S15 | Done (manual check) |
 | S17 | Duplicate ticket detection | C | §15 | sonnet | S15 | Todo |
 | S18 | Real-time updates | D | FR-04 | sonnet | S09 | Todo |
 | S19 | Notification centre and channels | D | FR-05 | sonnet | S18 | Todo |

@@ -4,6 +4,7 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { navAccess } from "@/lib/nav";
 import { requirePermission } from "@/server/auth/session";
 import { listDailyReports } from "@/server/reports/view";
+import { ReportsTabs } from "../reports-tabs";
 
 export default async function DailyReportsPage() {
   const user = await requirePermission(...navAccess("/reports"));
@@ -12,6 +13,7 @@ export default async function DailyReportsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <h1 className="text-heading-big font-bold text-career-dark">Daily reports</h1>
+      <ReportsTabs current="/reports/daily" />
       {reports.length === 0 ? (
         <p className="text-sm text-muted-foreground">No reports submitted yet.</p>
       ) : (

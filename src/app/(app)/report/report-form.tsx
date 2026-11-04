@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS, REPORT_PRIORITY_LABELS, STATUS_LABELS, TICKET_STATUSES } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
+import { carryForwardRows } from "@/lib/report-carry-forward";
 import {
   REPORT_MAX_FILE_BYTES,
+  REPORT_MAX_ROWS,
   REPORT_MAX_TOTAL_BYTES,
   REPORT_PRIORITIES,
   REPORT_SECTIONS,
@@ -53,10 +55,10 @@ const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(
 const draftKey = (departmentId: string, date: string) => `kn-report-draft:${departmentId}:${date}`;
 
 /** Files are held in memory only, so a restored draft keeps links but drops file attachments. */
-function readDraft(key: string): { draft: Draft; droppedFiles: boolean } {
+function readDraft(key: string, blank: Draft): { draft: Draft; droppedFiles: boolean } {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return { draft: emptyDraft(), droppedFiles: false };
+    if (!raw) return { draft: blank, droppedFiles: false };
     const draft = { ...emptyDraft(), ...(JSON.parse(raw) as Partial<Draft>) };
     let droppedFiles = false;
     draft.items = draft.items.map((row) => {
@@ -66,7 +68,7 @@ function readDraft(key: string): { draft: Draft; droppedFiles: boolean } {
     });
     return { draft, droppedFiles };
   } catch {
-    return { draft: emptyDraft(), droppedFiles: false };
+    return { draft: blank, droppedFiles: false };
   }
 }
 
@@ -151,7 +153,12 @@ function ReportEditor({
   submitted,
 }: Props & { storageKey: string; reportDate: string }) {
   const router = useRouter();
-  const [initial] = useState(() => readDraft(storageKey));
+  const deptTickets = tickets.filter((t) => t.ownDept);
+  const existing = submitted.find((r) => r.reportDate === reportDate);
+  // A date with a submitted report starts empty: "Load submitted report" keeps its row keys.
+  const blankDraft = (): Draft =>
+    existing ? emptyDraft() : { ...emptyDraft(), items: carryForwardRows(deptTickets, reportDate, uid) };
+  const [initial] = useState(() => readDraft(storageKey, blankDraft()));
   const [draft, setDraft] = useState<Draft>(initial.draft);
   const [errors, setErrors] = useState<Errors>({});
   const [summary, setSummary] = useState<string[]>([]);
@@ -160,13 +167,11 @@ function ReportEditor({
   const files = useRef(new Map<string, File>());
   // One key per version of the report: a double click or retry repeats it, an edit replaces it.
   const idempotencyKey = useRef(uid());
-  const existing = submitted.find((r) => r.reportDate === reportDate);
 
   useEffect(() => {
     if (draft.startedAt) localStorage.setItem(storageKey, JSON.stringify(draft));
   }, [draft, storageKey]);
 
-  const deptTickets = tickets.filter((t) => t.ownDept);
   const owners = users.filter((u) => u.departmentId === department.id);
 
   function edit(fn: (d: Draft) => Draft) {
@@ -265,7 +270,7 @@ function ReportEditor({
   function discard() {
     localStorage.removeItem(storageKey);
     files.current.clear();
-    setDraft(emptyDraft());
+    setDraft(blankDraft());
     setErrors({});
     setSummary([]);
     setPreview(false);
@@ -293,6 +298,14 @@ function ReportEditor({
         </p>
       )}
       {draft.startedAt && <p className="text-xs text-muted-foreground">Draft saved on this device.</p>}
+      {!existing && !draft.startedAt && draft.items.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {draft.items.length} open tickets carried forward. Overdue ones are under Delayed and need a reason; remove any
+          row you are not reporting on.
+          {deptTickets.length > REPORT_MAX_ROWS &&
+            ` Only the first ${REPORT_MAX_ROWS} of ${deptTickets.length} fit in one report.`}
+        </p>
+      )}
 
       {REPORT_SECTIONS.map((section) => (
         <section key={section} className="space-y-3 rounded-md border border-divider bg-surface p-4">
@@ -445,6 +458,9 @@ function LinkedRowFields({
         <p className="text-sm text-muted-foreground">
           {ticket.title} · {STATUS_LABELS[ticket.status]} · {ticket.progress}%
           {ticket.dueDate && ` · due ${fmtDate(new Date(ticket.dueDate))}`}
+          {ticket.originalDueDate &&
+            ticket.originalDueDate !== ticket.dueDate &&
+            ` · originally ${fmtDate(new Date(ticket.originalDueDate))}`}
         </p>
       )}
       <div className="grid gap-3 md:grid-cols-3">

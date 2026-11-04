@@ -17,6 +17,8 @@ export const REPORT_SECTION_LABELS: Record<ReportSectionKey, string> = {
 
 export const REPORT_PRIORITIES = ["NORMAL", "HIGH", "CRITICAL"] as const;
 
+export const REPORT_MAX_ROWS = 200;
+
 /** Mirrors `MAX_UPLOAD_BYTES` in `src/server/storage` (server-only module); S15 re-checks there. */
 export const REPORT_MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -102,7 +104,7 @@ export const dailyReportSchema = z.object({
   reportDate: isoDay,
   /** First edit of the draft (ISO timestamp) → S15 stores `fillSeconds`. */
   startedAt: z.iso.datetime().optional(),
-  items: z.array(reportRowSchema).max(200).default([]),
+  items: z.array(reportRowSchema).max(REPORT_MAX_ROWS).default([]),
   blockersText: optText(5000),
   nextDayPriorities: optText(5000),
   highestPriority: z.enum(REPORT_PRIORITIES).default("NORMAL"),

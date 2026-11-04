@@ -5,12 +5,16 @@ const TZ = "Asia/Kolkata";
 const dateFmt = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, dateStyle: "medium" });
 const dateTimeFmt = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" });
 const isoDayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
+const weekdayFmt = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" });
 
 /** e.g. "3 Nov 2026". */
 export const fmtDate = (d: Date) => dateFmt.format(d);
 
 /** e.g. "3 Nov 2026, 4:05 pm". */
 export const fmtDateTime = (d: Date) => dateTimeFmt.format(d);
+
+/** e.g. "Tue, 3 Nov". */
+export const fmtWeekday = (d: Date) => weekdayFmt.format(d);
 
 /** "YYYY-MM-DD" IST calendar day (for date inputs). */
 export const isoDateIST = (d: Date) => isoDayFmt.format(d);

@@ -10,6 +10,7 @@ import {
 import { logActivity, recordTicketEvent } from "@/server/audit";
 import { assertCan, can, ForbiddenError, type AuthzUser } from "@/server/authz";
 import { prisma } from "@/server/db";
+import { deptTicketWhere } from "@/server/reports/form";
 import { storage } from "@/server/storage";
 import { addAssignee } from "@/server/tickets/assignees";
 import { addAttachment } from "@/server/tickets/attachments";
@@ -108,8 +109,11 @@ async function applyText(ctx: Ctx, ticketId: string, row: Row, prior?: Row) {
 async function applyLinkedRow(ctx: Ctx, row: LinkRow, priorRow?: PriorRow) {
   const { user, tx, opts } = ctx;
   const ticketNo = row.ticketNo.toUpperCase();
-  const found = await tx.ticket.findUnique({ where: { ticketNo }, include: resourceInclude });
-  if (!found || found.departmentId !== ctx.departmentId || !can(user, "ticket.view", toTicketResource(found))) {
+  const found = await tx.ticket.findFirst({
+    where: { ticketNo, ...deptTicketWhere(ctx.departmentId) },
+    include: resourceInclude,
+  });
+  if (!found || !can(user, "ticket.view", toTicketResource(found))) {
     throw new TicketInputError("ticketNo", "Not a ticket of this department");
   }
   const prior = priorRow?.row.mode === "link" && priorRow.ticketId === found.id ? priorRow.row : undefined;
