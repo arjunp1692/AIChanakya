@@ -10,7 +10,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", actions: ["dashboard.ceo"] },
   { href: "/tickets", label: "Tickets", actions: ["ticket.view"] },
-  { href: "/daily-report", label: "Daily Report", actions: ["report.submit"] },
+  { href: "/report", label: "Daily Report", actions: ["report.submit"] },
   { href: "/decisions", label: "Decisions", actions: ["decision.request", "decision.decide"] },
   { href: "/escalations", label: "Escalations", actions: ["escalation.view"] },
   { href: "/reports", label: "Reports", actions: ["report.view"] },

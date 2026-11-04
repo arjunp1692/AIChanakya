@@ -20,7 +20,7 @@ const ICONS: Record<string, LucideIcon> = {
   "/": House,
   "/dashboard": LayoutDashboard,
   "/tickets": Ticket,
-  "/daily-report": ClipboardList,
+  "/report": ClipboardList,
   "/decisions": Gavel,
   "/escalations": Siren,
   "/reports": FileChartColumn,
