@@ -155,6 +155,7 @@ async function applyNewRow(ctx: Ctx, row: NewRow, priorRow?: PriorRow) {
       ownerId: row.ownerId,
       priority: row.priority,
       dueDate: row.dueDate,
+      duplicateOverride: row.duplicateOverride,
     },
     opts,
   );

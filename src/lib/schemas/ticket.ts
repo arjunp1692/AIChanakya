@@ -29,6 +29,8 @@ export const createTicketSchema = z
     noDeadlineReason: z.preprocess(blankToUndefined, z.string().trim().max(1000).optional()),
     /** Omitted = department default (Setting `confidential.defaultDepts`). */
     confidential: bool,
+    /** Confirms "Create anyway" when the title resembles an open ticket. */
+    duplicateOverride: bool,
   })
   .refine((t) => t.dueDate || t.noDeadlineReason, {
     message: "Set a due date or give a reason for no deadline",
@@ -59,6 +61,15 @@ export const changeStatusSchema = z.object({
 });
 
 export type ChangeStatusInput = z.input<typeof changeStatusSchema>;
+
+/** Mark a ticket as a duplicate of `duplicateOf` (a ticket ID). */
+export const markDuplicateSchema = z.object({
+  duplicateOf: z.preprocess(
+    (v) => blankToUndefined(v) ?? "",
+    z.string().trim().min(1, "Enter the original ticket ID").max(60),
+  ),
+  reason: z.preprocess(blankToUndefined, z.string().trim().max(900).optional()),
+});
 
 export const updateProgressSchema = z.object({
   progress: z.coerce

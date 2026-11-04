@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/constants";
 import { createTicketAction, type CreateTicketState } from "./actions";
+import { SimilarTicketsNotice, useSimilarTickets } from "./similar-tickets";
 
 type Props = {
   departments: { id: string; code: string; name: string }[];
@@ -25,6 +27,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 export function NewTicketForm({ departments, users, confidentialDepts, currentUserId }: Props) {
   const [state, action, pending] = useActionState<CreateTicketState, FormData>(createTicketAction, {});
   const [departmentId, setDepartmentId] = useState(departments.length === 1 ? departments[0].id : "");
+  const [title, setTitle] = useState("");
   const [noDeadline, setNoDeadline] = useState(false);
   // Confidential follows the department default until the creator ticks/unticks it.
   const [confidentialOverride, setConfidentialOverride] = useState<boolean | null>(null);
@@ -33,6 +36,7 @@ export function NewTicketForm({ departments, users, confidentialDepts, currentUs
   const owners = users.filter((u) => u.departmentId === departmentId);
   const confidential = confidentialOverride ?? (!!dept && confidentialDepts.includes(dept.code));
   const errors = state.fieldErrors ?? {};
+  const similar = useSimilarTickets(departmentId, title);
 
   return (
     <form action={action} className="space-y-4 rounded-md border border-divider bg-surface p-4">
@@ -40,7 +44,14 @@ export function NewTicketForm({ departments, users, confidentialDepts, currentUs
         <label htmlFor="title" className="text-sm font-medium">
           Title
         </label>
-        <Input id="title" name="title" required maxLength={200} />
+        <Input
+          id="title"
+          name="title"
+          required
+          maxLength={200}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
         <FieldError errors={errors.title} />
       </div>
 
@@ -142,6 +153,22 @@ export function NewTicketForm({ departments, users, confidentialDepts, currentUs
         Confidential (visible only to owner, co-assignees, HOD, CEO and CEO Office)
       </label>
       <input type="hidden" name="confidential" value={String(confidential)} />
+
+      {(similar.length > 0 || errors.duplicateOverride) && (
+        <SimilarTicketsNotice
+          matches={similar}
+          action={(t) => (
+            <Link className="text-content-link underline underline-offset-2" href={`/tickets/${t.ticketNo}`}>
+              Open existing
+            </Link>
+          )}
+        >
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="duplicateOverride" value="true" required />
+            Create anyway: this is a different task
+          </label>
+        </SimilarTicketsNotice>
+      )}
 
       {state.error && (
         <p role="alert" className="text-sm text-destructive">

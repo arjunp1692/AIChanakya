@@ -148,6 +148,8 @@ const SETTINGS: Record<string, Prisma.InputJsonValue> = {
   // Priorities whose completion needs an evidence attachment / HOD validation (PRD §17 decision 4, S13).
   "completion.requireEvidence": ["CRITICAL", "HIGH"],
   "completion.requireValidation": ["CRITICAL", "HIGH"],
+  // pg_trgm similarity at which a new title is suggested as a possible duplicate (S17).
+  "duplicate.similarityThreshold": 0.45,
   // OWN_DEPT | ALL_SHARED | HYBRID (PRD §17 decision 5)
   "visibility.crossDepartment": "HYBRID",
   "notifications.channels": ["IN_APP", "EMAIL"],

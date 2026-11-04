@@ -72,6 +72,8 @@ export const newRowSchema = z.object({
   dueDate: isoDay,
   /** Ticket IDs this new ticket waits on. */
   dependsOn: z.array(z.string().min(1)).max(20).default([]),
+  /** Confirms "Create anyway" when the title resembles an open ticket. */
+  duplicateOverride: z.boolean().default(false),
 });
 
 export const reportRowSchema = z

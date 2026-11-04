@@ -6,6 +6,7 @@ import { serviceError, type ServiceErrorBody } from "@/server/errors";
 import { addComment, updateTicket } from "@/server/tickets/service";
 import { changeStatus, updateProgress } from "@/server/tickets/workflow";
 import { addAttachment } from "@/server/tickets/attachments";
+import { markDuplicate } from "@/server/tickets/duplicates";
 import { changeDeadline, decideDeadline } from "@/server/tickets/deadline";
 import { addAssignee, removeAssignee, updateContribution } from "@/server/tickets/assignees";
 import {
@@ -57,6 +58,16 @@ export async function changeStatusAction(
 ): Promise<TicketFormState> {
   const user = await requireUser();
   return run(ticketNo, () => changeStatus(user, ticketId, Object.fromEntries(formData)));
+}
+
+export async function markDuplicateAction(
+  ticketId: string,
+  ticketNo: string,
+  _prev: TicketFormState,
+  formData: FormData,
+): Promise<TicketFormState> {
+  const user = await requireUser();
+  return run(ticketNo, () => markDuplicate(user, ticketId, Object.fromEntries(formData)));
 }
 
 export async function updateProgressAction(

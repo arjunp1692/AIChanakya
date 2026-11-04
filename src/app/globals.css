@@ -39,13 +39,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Fixed scale matching kuberanow.com (DESIGN §3), not shadcn's --radius multipliers */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
 
   /* Kubera Now brand tokens (docs/DESIGN.md §1, §5) */
   --color-primary-navy: #000ec0;
@@ -77,6 +78,7 @@
   --text-heading-big--line-height: 30px;
   --text-heading-small: 18px;
   --text-heading-small--line-height: 22px;
+  --text-subheading-big: 22px;
   --text-subheading-small: 16px;
   --text-subheading-small--line-height: 22px;
   --text-content-big: 16px;

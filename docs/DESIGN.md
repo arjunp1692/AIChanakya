@@ -19,9 +19,9 @@ surfaces, thin lavender borders. It is a dense work app, not a news site, so ado
 | `background-color`         | `#F3F4FF`  | App page background (lavender-tinted, not grey) |
 | `surface`                  | `#FFFFFF`  | Cards, tables, dialogs |
 | `career-tint`              | `#EFEFFF`  | Subtle row/section tint, scrollbar track |
-| `light-navy4` / `chip-bg`  | `#D7D9FF`  | Chip / badge background, text on navy |
-| `chip-border`              | `#CACDFF`  | Chip hover bg / chip ring |
-| `badge-border`             | `#B8BDF7`  | Badge outline |
+| `light-navy4` / `career-chip-bg` (ours: `chip-bg`) | `#D7D9FF` | Chip / badge background, text on navy |
+| `career-chip-border` (ours: `chip-border`) | `#CACDFF` | Chip hover bg / chip ring |
+| `main-page-badge-border` (ours: `badge-border`) | `#B8BDF7` | Badge outline |
 | `divider` / `career-stroke`| `#DADCFF`  | Card borders, dividers, table lines, scrollbar thumb |
 | `border-gray`              | `#DEDEDE`  | Neutral borders (inputs) |
 | `career-input-border`      | `#CECECE`  | Input outline |
@@ -35,6 +35,7 @@ surfaces, thin lavender borders. It is a dense work app, not a news site, so ado
 
 Gradient (brand bar, hero strips, CTA panels):
 `linear-gradient(268.06deg, #000EC0 2.86%, #000764 106.43%)` — Tailwind: `bg-linear-to-r from-dark-navy2 to-primary-navy`.
+The site also ships two variants with shifted stops (`-48.01%`/`98.53%` and `48.38%`/`106.43%`); use the one above unless matching a specific site panel.
 
 Status colours for tickets keep Tailwind defaults the site already ships: red-600 `#E40014`, amber-600 `#DD7400`,
 green (emerald/green-600), sky-600 `#0084CC`, slate-500 `#62748E`. Use them only as soft badges (`-50` bg, `-700` text).
@@ -45,11 +46,11 @@ green (emerald/green-600), sky-600 `#0084CC`, slate-500 `#62748E`. Use them only
   Replace Geist in `src/app/layout.tsx`:
   ```ts
   import { Noto_Sans, Noto_Sans_Gujarati } from "next/font/google";
-  const noto = Noto_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+  const noto = Noto_Sans({ subsets: ["latin"], variable: "--font-noto", display: "swap" });
   const notoGuj = Noto_Sans_Gujarati({ subsets: ["gujarati"], variable: "--font-guj", display: "swap" });
   // <html className={cn("font-sans", noto.variable, notoGuj.variable)}>
   ```
-  and set `--font-sans: var(--font-sans), var(--font-guj), sans-serif` in `@theme`.
+  and set `--font-sans: var(--font-noto), var(--font-guj), sans-serif` in `@theme`.
 - Scale (site's named sizes):
 
   | Role | Size / line-height | Weight | Class |
@@ -57,6 +58,7 @@ green (emerald/green-600), sky-600 `#0084CC`, slate-500 `#62748E`. Use them only
   | Page title | 24px / 30px | 700 | `text-heading-big font-bold` |
   | Section title | 18px / 22px | 700 | `text-heading-small font-bold leading-5.5` |
   | Card title | 14px → 18px (sm) / snug | 700 | `text-sm sm:text-lg leading-snug font-bold` |
+  | Large subheading | 22px | 600 | `text-subheading-big font-semibold` |
   | Subheading | 16px / 22px | 600 | `text-subheading-small font-semibold` |
   | Body | 14–16px / 1.5 | 400 | `text-sm` / `text-content-big` |
   | Meta / table secondary | 12px | 400 | `text-content-small text-career-muted` |
@@ -68,8 +70,9 @@ green (emerald/green-600), sky-600 `#0084CC`, slate-500 `#62748E`. Use them only
 
 ## 3. Shape, depth, spacing
 
-- Radius: small. Cards `rounded-md` (6px), inputs/buttons `rounded-md`, images/large panels `rounded-lg`,
-  chips/badges `rounded-full`. Set shadcn `--radius: 0.375rem` (site never uses 10px corners).
+- Radius: small. Cards `rounded-md` (6px), inputs/buttons `rounded-md`, images/large panels/dialogs `rounded-lg` (8px),
+  chips/badges `rounded-full`. Set shadcn `--radius: 0.375rem` (site never uses 10px corners), and pin the scale to
+  fixed values as in §5: shadcn's `--radius` multipliers would make `rounded-md` 4.8px and `rounded-lg` 6px.
 - Borders do the work, not shadows: `border border-divider` (`#DADCFF`). Shadows only `shadow-sm` on the sticky
   header and `shadow-md` on popovers/dialogs. Card hover: `shadow-[0_2px_3px_#0000001a]` (`job-card-hover`).
 - Spacing: Tailwind 4px grid. Cards `p-4` (`p-2.5` mobile), list gaps `gap-3`/`gap-4`, page gutter `px-4 md:px-6`.
@@ -115,7 +118,7 @@ title gets `group-hover:text-primary transition-colors`.
 - Focus ring everywhere: `ring-2 ring-primary-navy/40` (site has no custom focus — add it for a11y).
 
 **Tables** (ticket list): white surface, header row `bg-career-tint text-xs font-semibold uppercase tracking-wider
-text-career-muted`, rows `border-b border-divider last:border-b-0 hover:bg-career-tint/60`.
+text-text-soft`, rows `border-b border-divider last:border-b-0 hover:bg-career-tint/60`.
 
 **Inputs**: `border-career-input-border bg-white rounded-md focus:border-primary-navy focus:ring-primary-navy/30`.
 
@@ -136,10 +139,12 @@ Add brand tokens to `@theme inline` and remap shadcn variables so existing `ui/*
   --color-surface: #fff; --color-career-tint: #efefff; --color-chip-bg: #d7d9ff;
   --color-chip-border: #cacdff; --color-badge-border: #b8bdf7; --color-divider: #dadcff;
   --color-career-input-border: #cecece; --color-career-dark: #313131; --color-career-muted: #6e6e6e;
-  --color-content-link: #1e2eff; --color-error: #c4313f; --color-error-bg: #fdecee;
+  --color-text-soft: #374151; --color-content-link: #1e2eff; --color-error: #c4313f; --color-error-bg: #fdecee;
   --color-error-border: #f5c4ca; --color-error-text: #7a3742;
-  --text-heading-big: 24px; --text-heading-small: 18px; --text-subheading-small: 16px;
+  --text-heading-big: 24px; --text-heading-small: 18px; --text-subheading-big: 22px; --text-subheading-small: 16px;
   --text-content-big: 16px; --text-content-small: 12px;
+  --radius-sm: 0.25rem; --radius-md: 0.375rem; --radius-lg: 0.5rem; --radius-xl: 0.75rem;
+  --radius-2xl: 1rem; --radius-3xl: 1.5rem; --radius-4xl: 2rem;
 }
 :root {
   --radius: 0.375rem;
@@ -167,4 +172,5 @@ Dark mode: the site has none. Keep the existing `.dark` block untouched for now;
 - Do: bold, compact headings; section-bar headers; chips for department/priority.
 - Don't: cyan text on white (fails contrast), big rounded (>8px) cards, heavy shadows, grey (`#f5f5f5`) backgrounds,
   more than one gradient per screen, non-Noto fonts.
-- Contrast checks: `#010874` on `#F3F4FF` ≈ 15:1 ✓; `#00FFEE` on `#00065C` ≈ 14:1 ✓; `#6E6E6E` on white ≈ 5.1:1 ✓.
+- Contrast checks: `#010874` on `#F3F4FF` ≈ 15:1 ✓; `#00FFEE` on `#00065C` ≈ 14:1 ✓; `#6E6E6E` on white ≈ 5.1:1 ✓;
+  `#374151` on `#EFEFFF` ≈ 9:1 ✓. `#6E6E6E` on `#EFEFFF` ≈ 4.48:1 ✗ (below AA) — use `text-text-soft` on tinted surfaces.

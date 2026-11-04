@@ -12,6 +12,7 @@
  * | ticket.changeStatus      | yes | yes        | —               | own dept                    | tickets they own           |
  * | ticket.changeDeadline    | yes | yes        | —               | own dept                    | tickets they own (request) |
  * | ticket.assign / validate | yes | yes        | —               | own dept                    | —                          |
+ * | ticket.markDuplicate     | yes | yes        | —               | own dept                    | —                          |
  * | ticket.comment           | yes | yes        | —               | any visible ticket          | any visible ticket         |
  * | ticket.contribute        | yes | yes        | —               | own co-assignment           | own co-assignment          |
  * | report.submit            | yes | yes        | —               | own dept                    | —                          |
@@ -42,6 +43,7 @@ export type Action =
   | "ticket.changeStatus"
   | "ticket.changeDeadline"
   | "ticket.validate"
+  | "ticket.markDuplicate"
   | "ticket.comment"
   | "ticket.contribute"
   | "report.submit"
@@ -117,6 +119,7 @@ function ticketAction(user: AuthzUser, action: Action, t: TicketResource | undef
       return (user.role === "HOD" && ownDept) || (user.role === "MEMBER" && ownDept && owns);
     case "ticket.assign":
     case "ticket.validate":
+    case "ticket.markDuplicate":
       return user.role === "HOD" && ownDept;
     case "ticket.edit":
     case "ticket.changeStatus":

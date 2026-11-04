@@ -27,3 +27,6 @@ next-env.d.ts
 # app data
 uploads/
 .harness/tmp/
+
+# private Kubera Now codebase notes (contains the CMS admin path)
+docs/SKILL.md

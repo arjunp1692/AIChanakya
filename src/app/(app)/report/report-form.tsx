@@ -24,6 +24,7 @@ import {
   type newRowSchema,
 } from "@/lib/schemas/daily-report";
 import type { ReportFormData } from "@/server/reports/form";
+import { SimilarTicketsNotice, useSimilarTickets } from "../tickets/new/similar-tickets";
 import { submitReportAction } from "./actions";
 
 type Props = ReportFormData & { submitterName: string; today: string };
@@ -155,9 +156,10 @@ function ReportEditor({
   const router = useRouter();
   const deptTickets = tickets.filter((t) => t.ownDept);
   const existing = submitted.find((r) => r.reportDate === reportDate);
-  // A date with a submitted report starts empty: "Load submitted report" keeps its row keys.
+  const hasSubmittedRows = !!existing?.payload.items.length;
+  // A date with submitted rows starts empty: "Load submitted report" keeps their row keys.
   const blankDraft = (): Draft =>
-    existing ? emptyDraft() : { ...emptyDraft(), items: carryForwardRows(deptTickets, reportDate, uid) };
+    hasSubmittedRows ? emptyDraft() : { ...emptyDraft(), items: carryForwardRows(deptTickets, reportDate, uid) };
   const [initial] = useState(() => readDraft(storageKey, blankDraft()));
   const [draft, setDraft] = useState<Draft>(initial.draft);
   const [errors, setErrors] = useState<Errors>({});
@@ -281,9 +283,11 @@ function ReportEditor({
       {existing && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-divider bg-surface p-3 text-sm">
           <p>Revision {existing.revision} was already submitted for this date. Submitting again creates a new revision.</p>
-          <Button type="button" size="sm" variant="outline" onClick={loadSubmitted}>
-            Load submitted report
-          </Button>
+          {hasSubmittedRows && (
+            <Button type="button" size="sm" variant="outline" onClick={loadSubmitted}>
+              Load submitted report
+            </Button>
+          )}
         </div>
       )}
       <datalist id="report-dept-tickets">
@@ -298,7 +302,7 @@ function ReportEditor({
         </p>
       )}
       {draft.startedAt && <p className="text-xs text-muted-foreground">Draft saved on this device.</p>}
-      {!existing && !draft.startedAt && draft.items.length > 0 && (
+      {!hasSubmittedRows && !draft.startedAt && draft.items.length > 0 && (
         <p className="text-sm text-muted-foreground">
           {draft.items.length} open tickets carried forward. Overdue ones are under Delayed and need a reason; remove any
           row you are not reporting on.
@@ -334,12 +338,17 @@ function ReportEditor({
                 ) : (
                   <NewRowFields
                     row={row}
+                    departmentId={existing?.payload.items.some((r) => r.key === row.key) ? "" : department.id}
                     owners={owners}
                     users={users}
                     tickets={tickets}
                     errors={errors}
                     prefix={`items.${i}`}
                     onChange={(r) => setRow(i, r)}
+                    onLink={(ticketNo) => {
+                      const { key, section, note, reason, attachments } = row;
+                      setRow(i, { key, section, note, reason, attachments, mode: "link", ticketNo, newDueDate: "" });
+                    }}
                   />
                 )}
                 <Field label="Note" error={errors[`items.${i}.note`]}>
@@ -498,26 +507,57 @@ function LinkedRowFields({
 
 function NewRowFields({
   row,
+  departmentId,
   owners,
   users,
   tickets,
   errors,
   prefix,
   onChange,
+  onLink,
 }: {
   row: NewRow;
+  /** Blank for a row already submitted: its ticket exists and would match itself. */
+  departmentId: string;
   owners: Props["users"];
   users: Props["users"];
   tickets: Props["tickets"];
   errors: Errors;
   prefix: string;
   onChange: (row: NewRow) => void;
+  onLink: (ticketNo: string) => void;
 }) {
+  const similar = useSimilarTickets(departmentId, row.title);
+  const duplicateError = errors[`${prefix}.duplicateOverride`];
   return (
     <div className="space-y-3">
       <Field label="New ticket title" error={errors[`${prefix}.title`]}>
-        <Input value={row.title} maxLength={200} onChange={(e) => onChange({ ...row, title: e.target.value })} />
+        <Input
+          value={row.title}
+          maxLength={200}
+          onChange={(e) => onChange({ ...row, title: e.target.value, duplicateOverride: false })}
+        />
       </Field>
+      {(similar.length > 0 || duplicateError) && (
+        <SimilarTicketsNotice
+          matches={similar}
+          action={(t) => (
+            <Button type="button" size="sm" variant="outline" onClick={() => onLink(t.ticketNo)}>
+              Link to existing
+            </Button>
+          )}
+        >
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={!!row.duplicateOverride}
+              onChange={(e) => onChange({ ...row, duplicateOverride: e.target.checked })}
+            />
+            Create anyway: this is a different task
+          </label>
+          <FieldError error={duplicateError} />
+        </SimilarTicketsNotice>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="Owner" error={errors[`${prefix}.ownerId`]}>
           <select

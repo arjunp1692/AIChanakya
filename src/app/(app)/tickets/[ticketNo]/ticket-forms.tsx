@@ -25,6 +25,7 @@ import {
   addCommentAction,
   addAttachmentAction,
   addDependencyAction,
+  markDuplicateAction,
   removeDependencyAction,
   resolveDependencyAction,
   searchDependencyTargetsAction,
@@ -655,6 +656,65 @@ export function AddDependencyForm({ ticketId, ticketNo }: { ticketId: string; ti
               </Button>
               <Button type="submit" size="sm" disabled={pending}>
                 {pending ? "Adding…" : "Add"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/** Cancels this ticket as a duplicate of another one. */
+export function MarkDuplicateForm({ ticketId, ticketNo }: { ticketId: string; ticketNo: string }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<TicketFormState, FormData>(
+    markDuplicateAction.bind(null, ticketId, ticketNo),
+    {},
+  );
+  const errors = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Mark as duplicate
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Mark as duplicate</DialogTitle>
+              <DialogDescription>
+                This ticket is cancelled and linked to the original. It is left out of metrics.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <label htmlFor="dup-of" className="text-sm font-medium">
+                Original ticket ID
+              </label>
+              <Input id="dup-of" name="duplicateOf" required autoComplete="off" placeholder="KN-…" maxLength={60} />
+              <FieldError errors={errors.duplicateOf} />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="dup-reason" className="text-sm font-medium">
+                Note (optional)
+              </label>
+              <Input id="dup-reason" name="reason" maxLength={900} />
+              <FieldError errors={errors.reason} />
+            </div>
+            {state.error && !errors.duplicateOf && !errors.reason && (
+              <p className="text-sm text-destructive">{state.error}</p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Saving…" : "Mark as duplicate"}
               </Button>
             </DialogFooter>
           </form>

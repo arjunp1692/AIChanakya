@@ -6,6 +6,7 @@ import { prisma } from "@/server/db";
 import { getSettingValue } from "@/server/settings";
 import { resourceInclude, toTicketResource } from "./detail";
 import { nextTicketNo } from "./id";
+import { suggestSimilarTickets } from "./similar";
 import { dbOf, inTx, type ServiceOpts } from "./tx";
 
 /** Input that passed the schema but fails a data rule (unknown department, owner outside it). */
@@ -28,7 +29,8 @@ export async function confidentialDefaultDepts(): Promise<string[]> {
 /**
  * Creates a ticket valid from birth: owner + deadline (or no-deadline reason) enforced,
  * `originalDueDate` set once, CREATED event and activity log in the same transaction.
- * Throws ZodError, TicketInputError or ForbiddenError.
+ * A title resembling an open ticket the user can see is refused unless `duplicateOverride` confirms
+ * it, which is recorded as a DUPLICATE_OVERRIDE event. Throws ZodError, TicketInputError or ForbiddenError.
  */
 export async function createTicket(user: AuthzUser, input: unknown, opts: ServiceOpts = {}) {
   const data = createTicketSchema.parse(input);
@@ -43,6 +45,15 @@ export async function createTicket(user: AuthzUser, input: unknown, opts: Servic
     where: { id: data.ownerId, active: true, departmentId: dept.id },
   });
   if (!owner) throw new TicketInputError("ownerId", "Owner must be an active member of the department");
+
+  const similar = await suggestSimilarTickets(user, dept.id, data.title, opts);
+  if (similar.length > 0 && !data.duplicateOverride) {
+    const [closest] = similar;
+    throw new TicketInputError(
+      "duplicateOverride",
+      `This looks like ${closest.ticketNo} (${closest.title}). Use that ticket, or confirm "Create anyway"`,
+    );
+  }
 
   return inTx(opts, async (tx) => {
     const ticketNo = await nextTicketNo(tx, dept.code);
@@ -63,6 +74,16 @@ export async function createTicket(user: AuthzUser, input: unknown, opts: Servic
     const ticket = await tx.ticket.create({ data: created });
 
     await recordTicketEvent(tx, { ticketId: ticket.id, actor: user.id, type: "CREATED", to: ticket.status, reportId: opts.reportId });
+    if (similar.length > 0) {
+      await recordTicketEvent(tx, {
+        ticketId: ticket.id,
+        actor: user.id,
+        type: "DUPLICATE_OVERRIDE",
+        field: "duplicateOverride",
+        to: similar.map((t) => t.ticketNo).join(", "),
+        reportId: opts.reportId,
+      });
+    }
     await logActivity(tx, {
       actor: user.id,
       entity: "Ticket",

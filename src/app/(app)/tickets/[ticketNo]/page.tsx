@@ -30,6 +30,7 @@ import {
   AddAssigneeForm,
   AddAttachmentForm,
   AddDependencyForm,
+  MarkDuplicateForm,
   CommentForm,
   ContributionForm,
   DeadlineControl,
@@ -217,6 +218,8 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
     return option;
   };
   const statusOptions = canChangeStatus ? allowedNextStatuses(user, t.status, canValidate).map(statusOption) : [];
+  const canMarkDuplicate =
+    can(user, "ticket.markDuplicate", t.resource) && statusOptions.some((o) => o.status === "CANCELLED");
 
   return (
     <div className="space-y-6">
@@ -274,6 +277,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                 needsApproval={needsApproval}
               />
             )}
+            {canMarkDuplicate && <MarkDuplicateForm ticketId={t.id} ticketNo={t.ticketNo} />}
             {canChangeStatus && isOpenStatus(t.status) && (
               <div className="w-full max-w-sm">
                 <ProgressForm key={t.progress} ticketId={t.id} ticketNo={t.ticketNo} progress={t.progress} />
@@ -435,6 +439,10 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketN
                         <>
                           Added {e.field === "evidence" ? "evidence" : "attachment"}: {e.toValue}
                         </>
+                      ) : e.type === "DUPLICATE_MARKED" ? (
+                        <>Marked as duplicate of {e.toValue}</>
+                      ) : e.type === "DUPLICATE_OVERRIDE" ? (
+                        <>Created anyway despite similar tickets: {e.toValue}</>
                       ) : e.type === "COMMENT" ? (
                         "Commented"
                       ) : e.type === "CREATED" ? (
